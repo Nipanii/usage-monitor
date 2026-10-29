@@ -330,20 +330,19 @@ function malli(D, key, nytMs) {
     if (t <= resetMs) return { osuu: true, t, y: 100, h };
     return { osuu: false, t: resetMs, y: Math.min(100, n.v + rate * (resetMs - n.t) / TUNTI), h };
   };
-  // pää-vastaus
-  const r1j = M.J('p1') || M.J('p1a');
-  M.vastaus = n ? (() => {
-    const turva = M.J('turva').rate, pr = r1j ? M.proj(r1j.rate) : null;
-    let luokka = 'epavarma', teksti = '';
-    if (r1j && pr) {
-      const lo = M.proj(r1j.rate + (r1j.unc || 0)), hi = M.proj(Math.max(0, r1j.rate - (r1j.unc || 0)));
-      const eroaa = (lo.osuu !== hi.osuu) || (pr.osuu && lo.osuu && hi.osuu && false);
-      luokka = eroaa ? 'epavarma' : (pr.osuu ? 'huono' : 'ok');
-      teksti = pr.osuu ? `loppuu ${aikaTeksti(pr.t)}` : `riittää resetiin (päätyy ~${r1(pr.y)} %)`;
-      if (eroaa) teksti = `epävarma: ${lo.osuu ? 'loppuu ' + aikaTeksti(lo.t) : 'riittää'} … ${hi.osuu ? 'loppuu ' + aikaTeksti(hi.t) : 'riittää resetiin'}`;
-    }
-    return { jaljella: 100 - n.v, turva, r1: r1j, luokka, teksti, pr };
-  })() : null;
+  // ETA tahdilla J: loppuu / riittää, epävarmuus (±unc) näkyviin
+  const etaJ = J => {
+    if (!J || !okN(J.rate)) return null;
+    const p = M.proj(J.rate); if (!p) return null;
+    const lo = M.proj(J.rate + (J.unc || 0)), hi = M.proj(Math.max(0, J.rate - (J.unc || 0)));
+    const eroaa = lo.osuu !== hi.osuu;
+    const teksti = eroaa ? `epävarma: ${lo.osuu ? 'loppuu ' + aikaTeksti(lo.t) : 'riittää'} … ${hi.osuu ? 'loppuu ' + aikaTeksti(hi.t) : 'riittää resetiin'}`
+      : (p.osuu ? `loppuu ${aikaTeksti(p.t)}` : `riittää resetiin (päätyy ~${r1(p.y)} %)`);
+    return { J, pr: p, eroaa, teksti, luokka: eroaa ? 'epavarma' : (p.osuu ? 'huono' : 'ok') };
+  };
+  // pää-vastaus: ensisijaisesti koko ikkunan keskiarvotahti (ka: viikko tai 5 h), toissijaisesti viime tunnin mitattu tahti (p1, tai p1a arviona)
+  const kaE = etaJ(M.J('ka')), viimeE = etaJ(M.J('p1') || M.J('p1a'));
+  M.vastaus = n ? { jaljella: 100 - n.v, turva: M.J('turva').rate, luokka: kaE ? kaE.luokka : 'epavarma', teksti: kaE ? kaE.teksti : '', pr: kaE ? kaE.pr : null, ka: kaE, viime: viimeE } : null;
   return M;
 }
 
@@ -468,14 +467,15 @@ function jaljella(ms) {
 }
 const ika = () => Math.round((Date.now() - Date.parse(D.paivitetty)) / 60e3);
 
-// loppuu arviolta: sama laskenta kuin vastauksessa (mitattu tahti ≥ 45 min ikkunasta, epävarmuus näkyviin)
+// loppuu arviolta: ensin koko ikkunan keskiarvotahdilla (sama kuin vastauksessa), sitten viime tunnin tahdilla
 function loppuArvio(key) {
   const M = malli(D, key, Date.now());
   if (!M.nyt) return 'loppuu arviolta: ei lukemia';
-  const A = M.vastaus; if (!A || !A.r1) return 'loppuu arviolta: ei tarpeeksi pitkää lukemaväliä (≥ 45 min)';
-  const sel = ` (tahti ${luku(A.r1.rate)} ±${luku(A.r1.unc || 0)} %/h${A.r1.lahde === 'arvio' ? ', arvio' : ''}, ${Math.round(A.r1.h * 60)} min)`;
+  const A = M.vastaus; if (!A || !A.ka) return 'loppuu arviolta: ei lukemia';
   if (M.nyt.v >= 100) return 'täynnä (100 %)';
-  return (A.pr.osuu ? 'loppuu arviolta: ' + aikaTeksti(A.pr.t) : 'ei lopu ennen nollausta') + sel;
+  const K = A.ka, V = A.viime;
+  const kaOsa = (K.eroaa ? K.teksti : K.pr.osuu ? 'loppuu arviolta: ' + aikaTeksti(K.pr.t) : 'ei lopu ennen nollausta') + ` (${M.viikko ? 'viikon' : 'session'} tahti ${luku(K.J.rate)} %/h)`;
+  return V ? kaOsa + ` · viime tunnin tahdilla ${luku(V.J.rate)}${V.J.unc ? ' ±' + luku(V.J.unc) : ''} %/h: ${V.teksti}` : kaOsa;
 }
 
 function tiilet() {
@@ -570,9 +570,12 @@ function piirraVastaus(M) {
   if (!M.nyt || !M.vastaus) { el.className = 'vastaus'; el.innerHTML = '<h2>Ei lukemia tässä ikkunassa</h2><div class="pieni">Ikkuna on vaihtunut eikä uusia lukemia ole vielä (lukemat ~15 min välein).</div>'; return; }
   const A = M.vastaus, v = M.nyt.v, lukemaIka = Math.round((Date.now() - M.nyt.t) / 60e3);
   el.className = 'vastaus ' + A.luokka;
-  const r1t = A.r1 ? `nykyinen ${A.r1.lahde === 'mitattu' ? Math.round(A.r1.h * 60) + ' min' : '1-h'} tahti ${luku(A.r1.rate)}${A.r1.unc ? ' ±' + luku(A.r1.unc) : ''} %/h${A.r1.lahde === 'arvio' ? ' (arvio transkripteista)' : ''}` : 'nykyistä tahtia ei voi mitata (lukemaväli < 45 min)';
+  const K = A.ka, V = A.viime;
+  const kaTeksti = K ? `${M.viikko ? 'Viikon' : 'Session (5 h)'} tahdilla ${luku(K.J.rate)} %/h${M.viikko ? ' (kuten claude.ai)' : ''}: ${K.teksti}` : 'keskiarvotahtia ei voi laskea';
+  const viimeTeksti = V ? `Viime tunnin tahdilla ${luku(V.J.rate)}${V.J.unc ? ' ±' + luku(V.J.unc) : ''} %/h${V.J.lahde === 'arvio' ? ' (arvio transkripteista)' : ''}: ${V.teksti}` : 'viime tunnin tahtia ei voi mitata (lukemaväli < 45 min)';
   el.innerHTML = `<h2>Riittääkö jäljellä oleva ${100 - v} % ${nimi} (${aikaTeksti(M.resetMs)})?</h2>` +
-    `<div class="iso">Riittää jos tahti alle ${luku(A.turva)} %/h · ${r1t}${A.teksti ? ' → ' + A.teksti : ''}</div>` +
+    `<div class="iso">${kaTeksti}</div>` +
+    `<div class="pieni">${viimeTeksti} · Riittää jos tahti alle ${luku(A.turva)} %/h</div>` +
     `<div class="pieni">Lukema ${v} % klo ${kloTeksti(M.nyt.t)} (${lukemaIka} min sitten). Tahti on mitattu kokonaisluku-%:eista vähintään 45 min ikkunasta, joten ± kertoo pyöristyksen epävarmuuden (±1 % / ikkunan pituus). Tämä on tilauksen yhden mittarin ennuste: claude.ai-chatit ja muut laitteet ovat mukana %:ssa mutta eivät transkripteissa.</div>`;
 }
 
