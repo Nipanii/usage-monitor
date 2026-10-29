@@ -78,6 +78,7 @@ footer { font-size: 12px; color: var(--muted); margin: 16px 0 24px; overflow-wra
   </div>
 
   <div class="vastaus" id="vastaus"></div>
+  <div class="pieni" style="margin:4px 2px 0"><label for="oma_jakso">Oma tahti jaksolta:</label> <select id="oma_jakso"></select></div>
 
   <section class="kortti">
     <h2 id="h_kayra">Kiintiökäyrä ja projektiot</h2>
@@ -245,7 +246,14 @@ function tahtiMitattu(luk, minMin = 45) {
   return { rate: (L.v - E.v) / h, unc: 1 / h, h, a: E.v, b: L.v, t0: E.t, t1: L.t };
 }
 
-function malli(D, key, nytMs) {
+// valittavat jaksot "oma tahti" -riville (m = minuuttia, null = koko ikkuna = ka)
+const OMA_JAKSOT = {
+  viikko: [{ v: '1h', m: 60, l: '1 h' }, { v: '3h', m: 180, l: '3 h' }, { v: '6h', m: 360, l: '6 h' }, { v: '12h', m: 720, l: '12 h' }, { v: '24h', m: 1440, l: '24 h' }, { v: '48h', m: 2880, l: '48 h' }, { v: 'koko', m: null, l: 'Koko viikon' }],
+  sessio: [{ v: '15min', m: 15, l: '15 min' }, { v: '30min', m: 30, l: '30 min' }, { v: '1h', m: 60, l: '1 h' }, { v: '2h', m: 120, l: '2 h' }, { v: 'koko', m: null, l: 'Koko 5 h ikkunan' }],
+};
+const OMA_OLETUS = { viikko: '6h', sessio: '1h' };
+
+function malli(D, key, nytMs, oma = null) {
   const viikko = key === 'viikko', W = viikko ? D.viikko : D.sessio;
   const resetMs = Date.parse(viikko ? D.nyt.viikkoResets : D.nyt.sessioResets) || W.loppu;
   const tData = Math.min(Date.parse(D.paivitetty) || nytMs, nytMs);
@@ -342,7 +350,19 @@ function malli(D, key, nytMs) {
   };
   // pää-vastaus: ensisijaisesti koko ikkunan keskiarvotahti (ka: viikko tai 5 h), toissijaisesti viime tunnin mitattu tahti (p1, tai p1a arviona)
   const kaE = etaJ(M.J('ka')), viimeE = etaJ(M.J('p1') || M.J('p1a'));
-  M.vastaus = n ? { jaljella: 100 - n.v, turva: M.J('turva').rate, luokka: kaE ? kaE.luokka : 'epavarma', teksti: kaE ? kaE.teksti : '', pr: kaE ? kaE.pr : null, ka: kaE, viime: viimeE } : null;
+  // oma jakso: mitattu tahti jos lukemaväli riittää (tahtiMitattu), muuten transkriptiarvio samalta jaksolta (arvioJakso); koko ikkuna = ka
+  const omaV = oma && OMA_JAKSOT[viikko ? 'viikko' : 'sessio'].find(o => o.v === oma);
+  let omaE = null;
+  if (omaV && n) {
+    if (omaV.m == null) omaE = kaE && { ...kaE, label: omaV.l, lahde: 'mitattu' };
+    else {
+      const mi = tahtiMitattu(luk, omaV.m);
+      const J = mi ? { id: 'oma', rate: mi.rate, unc: mi.unc, h: mi.h, lahde: 'mitattu' } : arvioJakso('oma', omaV.l, Math.max(n.t - omaV.m * 60e3, W.alku), n.t);
+      const e = J && etaJ(J);
+      omaE = e && { ...e, label: omaV.l, lahde: J.lahde, h: J.h };
+    }
+  }
+  M.vastaus = n ? { jaljella: 100 - n.v, turva: M.J('turva').rate, luokka: kaE ? kaE.luokka : 'epavarma', teksti: kaE ? kaE.teksti : '', pr: kaE ? kaE.pr : null, ka: kaE, viime: viimeE, oma: omaE } : null;
   return M;
 }
 
@@ -573,9 +593,12 @@ function piirraVastaus(M) {
   const K = A.ka, V = A.viime;
   const kaTeksti = K ? `${M.viikko ? 'Viikon' : 'Session (5 h)'} tahdilla ${luku(K.J.rate)} %/h${M.viikko ? ' (kuten claude.ai)' : ''}: ${K.teksti}` : 'keskiarvotahtia ei voi laskea';
   const viimeTeksti = V ? `Viime tunnin tahdilla ${luku(V.J.rate)}${V.J.unc ? ' ±' + luku(V.J.unc) : ''} %/h${V.J.lahde === 'arvio' ? ' (arvio transkripteista)' : ''}: ${V.teksti}` : 'viime tunnin tahtia ei voi mitata (lukemaväli < 45 min)';
+  const O = A.oma;
+  const omaTeksti = O ? `${O.label.startsWith('Koko') ? O.label : 'Viim. ' + O.label} tahdilla ${luku(O.J.rate)}${O.J.unc ? ' ±' + luku(O.J.unc) : ''} %/h${O.lahde === 'arvio' ? ' (arvio transkripteista)' : ' (mitattu)'}: ${O.teksti}` : 'oma jakso: ei lukemia tältä jaksolta';
   el.innerHTML = `<h2>Riittääkö jäljellä oleva ${100 - v} % ${nimi} (${aikaTeksti(M.resetMs)})?</h2>` +
     `<div class="iso">${kaTeksti}</div>` +
     `<div class="pieni">${viimeTeksti} · Riittää jos tahti alle ${luku(A.turva)} %/h</div>` +
+    `<div class="pieni">${omaTeksti}</div>` +
     `<div class="pieni">Lukema ${v} % klo ${kloTeksti(M.nyt.t)} (${lukemaIka} min sitten). Tahti on mitattu kokonaisluku-%:eista vähintään 45 min ikkunasta, joten ± kertoo pyöristyksen epävarmuuden (±1 % / ikkunan pituus). Tämä on tilauksen yhden mittarin ennuste: claude.ai-chatit ja muut laitteet ovat mukana %:ssa mutta eivät transkripteissa.</div>`;
 }
 
@@ -895,13 +918,27 @@ function alaviite(M) {
     (so ? ` · sovitusvirhe ±${so.keskimVirhe.toFixed(2)} %-yks (${so.n} lukemaa, ${kesto(so.kattaaH)})` : '') + '<br>Data: data.json (usage-sivu.js) · päivittyy kun kiintiörivi muuttuu';
 }
 
+// oma jakso: valinta muistiin localStorageen (viikko ja 5 h erikseen); estää virheet jos selain ei salli
+const avain = () => VALI === 'viikko' ? 'viikko' : 'sessio';
+function omaLue(k) {
+  try { const v = localStorage.getItem('um_oma_' + k); if (v && OMA_JAKSOT[k].some(o => o.v === v)) return v; } catch (e) { /* ei tallennusta */ }
+  return OMA_OLETUS[k];
+}
+function omaTallenna(k, v) { try { localStorage.setItem('um_oma_' + k, v); } catch (e) { /* ei tallennusta */ } }
+function paivitaOmaValinta() {
+  const k = avain(), sel = $('oma_jakso');
+  sel.innerHTML = OMA_JAKSOT[k].map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+  sel.value = omaLue(k);
+}
+
 function piira() {
   if (!D) return;
   kaaviot.forEach(c => c.destroy()); kaaviot = [];
   tiilet();
+  paivitaOmaValinta();
   document.getElementById('vain_viikko').style.display = VALI === 'viikko' ? '' : 'none';
   if (typeof Chart === 'undefined') { $('virhe').textContent = 'Chart.js ei latautunut (CDN)'; return; }
-  const M = malli(D, VALI === 'viikko' ? 'viikko' : 'sessio', Date.now());
+  const M = malli(D, avain(), Date.now(), omaLue(avain()));
   piirraVastaus(M);
   if (M.nyt) { piirraKayra(M); piirraNopeus(M); piirraLahi(M); piirraTaulu(M); }
   document.getElementById('vain_viikko0').style.display = VALI === 'viikko' ? '' : 'none';
@@ -928,6 +965,7 @@ document.querySelectorAll('[role=tab]').forEach(b => b.addEventListener('click',
   document.querySelectorAll('[role=tab]').forEach(t => t.setAttribute('aria-selected', String(t === b)));
   piira();
 }));
+$('oma_jakso').addEventListener('change', e => { omaTallenna(avain(), e.target.value); piira(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', piira);
 
 lataa();
