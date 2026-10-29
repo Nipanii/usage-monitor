@@ -9,13 +9,18 @@
 /* värit: :root-muuttujat, tumma teema alla */
 :root {
   --bg: #f6f7f9; --card: #ffffff; --fg: #111827; --muted: #6b7280; --line: #e5e7eb;
-  --accent: #2563eb; --red: #dc2626; --amber: #f59e0b; --tok: #111827; --ilman: #7c3aed;
+  --accent: #2563eb; --red: #dc2626; --amber: #d97706; --green: #16a34a; --tok: #111827; --ilman: #7c3aed;
   --opus: #7c3aed; --sonnet: #2563eb; --haiku: #16a34a; --nopeus: #ea580c;
+  --cr: #94a3b8; --cw: #f59e0b; --inp: #2563eb; --out: #16a34a;
+  --p1: #ea580c; --p2: #2563eb; --p3: #16a34a; --p4: #6b7280; --p5: #a21caf;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1115; --card: #181b22; --fg: #e5e7eb; --muted: #9ca3af; --line: #2a2f3a;
-    --accent: #60a5fa; --red: #f87171; --amber: #fbbf24; --tok: #e5e7eb; --ilman: #c4b5fd; --nopeus: #fb923c;
+    --accent: #60a5fa; --red: #f87171; --amber: #fbbf24; --green: #4ade80; --tok: #e5e7eb; --ilman: #c4b5fd; --nopeus: #fb923c;
+    --opus: #c4b5fd; --sonnet: #60a5fa; --haiku: #4ade80;
+    --cr: #64748b; --cw: #fbbf24; --inp: #60a5fa; --out: #4ade80;
+    --p1: #fb923c; --p2: #60a5fa; --p3: #4ade80; --p4: #9ca3af; --p5: #e879f9;
   }
 }
 * { box-sizing: border-box; min-width: 0; }
@@ -34,11 +39,29 @@ h1 { font-size: 20px; margin: 4px 0 12px; }
 .tabs { display: flex; gap: 6px; margin: 16px 0 8px; }
 .tabs button { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; cursor: pointer; }
 .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.vastaus { background: var(--card); border: 2px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
+.vastaus.ok { border-color: var(--green); } .vastaus.huono { border-color: var(--red); } .vastaus.epavarma { border-color: var(--amber); }
+.vastaus h2 { font-size: 16px; margin: 0 0 6px; font-weight: 600; overflow-wrap: anywhere; }
+.vastaus .iso { font-size: 19px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.vastaus .pieni { font-size: 12px; color: var(--muted); margin-top: 6px; overflow-wrap: anywhere; }
 .kortti { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 10px; }
 .kortti h2 { font-size: 14px; margin: 0 0 4px; font-weight: 600; }
 .kortti p { font-size: 12px; color: var(--muted); margin: 0 0 8px; overflow-wrap: anywhere; }
+.kortti p.sel { margin: 8px 0 0; color: var(--fg); }
 .kaavio { position: relative; width: 100%; height: 300px; }
+.kaavio.matala { height: 220px; }
 .kaavio canvas { max-width: 100%; }
+.taulu { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); }
+th { color: var(--muted); font-weight: 600; white-space: normal; vertical-align: bottom; }
+td.lahde { color: var(--muted); }
+tr.korostus td { font-weight: 600; }
+.valitsin { display: flex; gap: 6px; margin: 4px 0 8px; flex-wrap: wrap; }
+.valitsin button { padding: 4px 10px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; }
+.valitsin button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+h3.osio { font-size: 13px; margin: 18px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 #virhe { color: var(--red); margin-top: 12px; overflow-wrap: anywhere; }
 footer { font-size: 12px; color: var(--muted); margin: 16px 0 24px; overflow-wrap: anywhere; }
 </style>
@@ -54,43 +77,388 @@ footer { font-size: 12px; color: var(--muted); margin: 16px 0 24px; overflow-wra
     <button role="tab" data-v="5h" aria-selected="false">5 h</button>
   </div>
 
+  <div class="vastaus" id="vastaus"></div>
+
   <section class="kortti">
-    <h2>Mitattu kulutus % / h ja kertynyt %</h2>
-    <p id="otsikko1"></p>
-    <div class="kaavio"><canvas id="k1" role="img" aria-label="mitattu kulutus % / h lukemaväleittäin, kertynyt arvio ja claude.ai:n oikea %"></canvas></div>
+    <h2 id="h_kayra">Kiintiökäyrä ja projektiot</h2>
+    <p id="o_kayra"></p>
+    <div class="kaavio"><canvas id="c_kayra" role="img" aria-label="kertynyt kiintiö-% ikkunassa, oikeat lukemat, arvio transkripteista ja projektiot nykyhetkestä eri tahdeilla"></canvas></div>
+    <p class="sel" id="s_kayra"></p>
   </section>
 
   <section class="kortti">
-    <h2>Tehokkuus: tokenia per 1 %</h2>
-    <p id="otsikko2">jokainen kiintiörivi, korkeampi = enemmän tokeneita samalla kiintiöllä</p>
-    <div class="kaavio"><canvas id="k2" role="img" aria-label="tokenia per 1 % ajan yli"></canvas></div>
+    <h2>Nopeudet eri jaksoilla</h2>
+    <p id="o_nopeus"></p>
+    <div class="kaavio" id="w_nopeus"><canvas id="c_nopeus" role="img" aria-label="kulutusnopeus prosenttia tunnissa eri jaksoilla"></canvas></div>
   </section>
 
   <section class="kortti">
-    <h2>Tokenit / h malleittain (ilman cache-lukuja)</h2>
-    <p id="otsikko3"></p>
-    <div class="kaavio"><canvas id="k3" role="img" aria-label="tokenia tunnissa malleittain ilman cache-lukuja"></canvas></div>
+    <h2>Lähikuva: nyt → nollautuminen</h2>
+    <p id="o_lahi"></p>
+    <div class="kaavio"><canvas id="c_lahi" role="img" aria-label="lähikuva nykyhetkestä nollautumiseen, jokainen tahti omana viivana"></canvas></div>
   </section>
 
-  <footer>
-    RAJA: claude.ai-chatit/muut laitteet eivät ole transkripteissa · %/h-palkit ovat MITATTUJA (claude.ai:n kokonaisluku-% peräkkäisten lukemien välillä; ~15 min välein, lyhyillä väleillä 1 %:n askel näkyy piikkinä) · malli- ja token-jako tulee transkripteista eikä selitä %:ia suoraan · kertynyt (keltainen) viiva on edelleen ARVIO: kiintiön oletetaan olevan ~ API-hinta, ja se osuu oikeaan %:iin viimeisessä pisteessä rakenteellisesti · "loppuu arviolta" ekstrapoloi viimeisten lukemien tahdin, joten nopeasti muuttuva tahti tekee siitä epävarman
-    <br>Data: data.json (usage-sivu.js) · päivittyy kun kiintiörivi muuttuu
-  </footer>
+  <section class="kortti">
+    <h2>Jaksot taulukkona</h2>
+    <p id="o_taulu"></p>
+    <div class="taulu" id="taulu"></div>
+  </section>
+
+  <div id="vain_viikko0">
+  <h3 class="osio">Päivät ja tunnit</h3>
+
+  <section class="kortti">
+    <h2>Päiväkohtaiset palkit: % viikkokiintiötä per päivä</h2>
+    <p id="o_pv"></p>
+    <div class="kaavio matala"><canvas id="c_pv" role="img" aria-label="käytetty viikkokiintiö-prosentti päivittäin malleittain pinottuna"></canvas></div>
+  </section>
+
+  <section class="kortti">
+    <h2 id="h_tn">Tuntikohtaiset palkit: % viikkokiintiötä per tunti</h2>
+    <p id="o_tn"></p>
+    <div class="valitsin" id="v_paiva"></div>
+    <div class="kaavio"><canvas id="c_tn" role="img" aria-label="käytetty viikkokiintiö-prosentti tunneittain malleittain pinottuna, kylmät tunnit merkitty"></canvas></div>
+    <p class="sel" id="s_tn"></p>
+  </section>
+  </div>
+
+  <h3 class="osio">Tokenit tunneittain, malleittain</h3>
+
+  <section class="kortti">
+    <h2 id="h_tok">Oikeat tokenit tunneittain</h2>
+    <p id="o_tok"></p>
+    <div class="valitsin" id="v_malli"></div>
+    <div class="kaavio"><canvas id="c_tok" role="img" aria-label="tokenit tunneittain lajeittain: cache-luku, cache-kirjoitus, syöte, tuloste"></canvas></div>
+  </section>
+
+  <section class="kortti">
+    <h2>Ilman cache-lukua: syöte, cache-kirjoitus, tuloste</h2>
+    <p id="o_tok2"></p>
+    <div class="kaavio"><canvas id="c_tok2" role="img" aria-label="syöte, cache-kirjoitus ja tuloste tunneittain, kylmät tunnit merkitty"></canvas></div>
+    <p class="sel" id="s_kylma"></p>
+  </section>
+
+  <div id="vain_viikko">
+  <h3 class="osio">Tehokkuus jaksoittain</h3>
+
+  <section class="kortti">
+    <h2>$ per miljoona tokenia</h2>
+    <p id="o_eff1"></p>
+    <div class="kaavio matala"><canvas id="c_eff1" role="img" aria-label="API-hinta dollaria per miljoona tokenia jaksoittain"></canvas></div>
+  </section>
+
+  <section class="kortti">
+    <h2>Tokenia yhdellä prosentilla</h2>
+    <p id="o_eff2"></p>
+    <div class="kaavio matala"><canvas id="c_eff2" role="img" aria-label="miljoonaa tokenia per yksi prosentti viikkokiintiötä jaksoittain"></canvas></div>
+  </section>
+
+  <section class="kortti">
+    <h2>Tokenia / 1 % — koko viikon kertymä, jokaisella lukemalla</h2>
+    <p id="o_k2a"></p>
+    <div class="kaavio matala"><canvas id="c_k2a" role="img" aria-label="miljoonaa tokenia per 1 % kaikki tokenit mukaan lukien cache"></canvas></div>
+    <p class="sel">Mitä isompi luku, sitä enemmän työtä saat yhdellä prosentilla. Cache-luvut ovat halpoja, joten ne paisuttavat tätä lukua; ilman cache-lukuja (alla) näet pelkän uuden työn.</p>
+  </section>
+
+  <section class="kortti">
+    <h2>Tokenia / 1 % — ilman cache-lukuja</h2>
+    <p id="o_k2b"></p>
+    <div class="kaavio matala"><canvas id="c_k2b" role="img" aria-label="miljoonaa tokenia per 1 % ilman cache-lukuja"></canvas></div>
+  </section>
+
+  <h3 class="osio">Kompaktiot</h3>
+
+  <section class="kortti">
+    <h2>Konteksti kompaktioiden välillä</h2>
+    <p id="o_komp1"></p>
+    <div class="kaavio"><canvas id="c_komp1" role="img" aria-label="kontekstin koko kompaktioiden alussa ja lopussa ajan yli"></canvas></div>
+  </section>
+
+  <section class="kortti">
+    <h2>Yhden pyynnön hinta kontekstin mukaan</h2>
+    <p id="o_komp2"></p>
+    <div class="kaavio matala"><canvas id="c_komp2" role="img" aria-label="yhden pyynnön API-hinta kontekstin koon mukaan"></canvas></div>
+  </section>
+
+  <section class="kortti">
+    <h2>Onko autocompact-raja hyvä hinnan kannalta?</h2>
+    <p id="o_komp3"></p>
+    <div class="kaavio matala"><canvas id="c_komp3" role="img" aria-label="mallinnettu keskihinta per pyyntö kompaktiorajan funktiona"></canvas></div>
+    <div class="taulu" id="taulu_komp"></div>
+    <p class="sel" id="s_komp"></p>
+  </section>
+  </div>
+
+  <footer id="alaviite"></footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script>
 'use strict';
-// usage-monitor: lukee data.json:n (usage-sivu.js kirjoittaa), piirtää tiilet + 2 kaaviota
+// usage-monitor: lukee data.json:n (usage-sivu.js kirjoittaa) ja piirtää vastauksen, käyrän, nopeudet, lähikuvan, taulukon, tokenit ja kompaktiot.
+// ==LASKENTA== (puhtaita funktioita: ei DOM:ia, testattavissa nodella)
+const TUNTI = 3600e3;
+const VPV = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
+const okN = x => x != null && !isNaN(x);
+const r1 = x => Math.round(x * 10) / 10;
+
+function aikaTeksti(ms) { return new Date(ms).toLocaleString('fi-FI', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function kloTeksti(ms) { return new Date(ms).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }); }
+function pvTeksti(ms) { return VPV[new Date(ms).getDay()] + ' ' + new Date(ms).getDate() + '.' + (new Date(ms).getMonth() + 1) + '.'; }
+function luku(x) { // %/h: pienet kahdella, isot yhdellä desimaalilla
+  if (!okN(x)) return '–';
+  return Math.abs(x) < 1 ? x.toFixed(2) : Math.abs(x) < 10 ? x.toFixed(1) : x.toFixed(0);
+}
+function kesto(h) { // tunnit -> "6 vrk 3 h" / "4 h 12 min" / "12 min"
+  if (!okN(h)) return '–';
+  if (!isFinite(h)) return 'ei lopu';
+  const min = Math.round(h * 60);
+  if (min < 1) return '< 1 min';
+  const pv = Math.floor(min / 1440), t = Math.floor(min % 1440 / 60), m = min % 60;
+  return pv ? `${pv} vrk ${t} h` : t ? `${t} h ${m} min` : `${m} min`;
+}
+function megaa(x) { return okN(x) ? (x >= 1e6 ? (x / 1e6).toFixed(x >= 1e8 ? 0 : 1) + ' M' : x >= 1e3 ? Math.round(x / 1e3) + ' k' : String(Math.round(x))) : '–'; }
+
+// oikeat lukemat: yhdistä alle 5 min välit (sama arvo -> säilytä aiempi, uusi arvo -> käytä uudempaa), vain ikkunan sisällä
+function yhdista(rivit, key, alku, minValiMs = 5 * 60e3) {
+  const R = rivit.filter(r => r[key] != null && Date.parse(r.t) >= alku).map(r => ({ t: Date.parse(r.t), v: r[key] })).sort((a, b) => a.t - b.t);
+  const out = [];
+  for (const r of R) {
+    const l = out[out.length - 1];
+    if (l && r.t - l.t < minValiMs) { if (r.v !== l.v) out[out.length - 1] = r; continue; }
+    out.push(r);
+  }
+  return out;
+}
+
+// mitattu tahti: aina vähintään minMin min ikkunasta (kokonaisluku-% -> yksi askel lyhyellä välillä on mielettömän iso tahti)
+// epävarmuus: ±1 % / ikkunan tunnit (kumpikin lukema voi olla pyöristetty)
+function tahtiMitattu(luk, minMin = 45) {
+  if (luk.length < 2) return null;
+  const L = luk[luk.length - 1];
+  let E = null;
+  for (let i = luk.length - 2; i >= 0; i--) { if (L.t - luk[i].t >= minMin * 60e3) { E = luk[i]; break; } }
+  if (!E) return null;
+  if (E.v > L.v) return null; // nollaus välissä
+  const h = (L.t - E.t) / TUNTI;
+  return { rate: (L.v - E.v) / h, unc: 1 / h, h, a: E.v, b: L.v, t0: E.t, t1: L.t };
+}
+
+function malli(D, key, nytMs) {
+  const viikko = key === 'viikko', W = viikko ? D.viikko : D.sessio;
+  const resetMs = Date.parse(viikko ? D.nyt.viikkoResets : D.nyt.sessioResets) || W.loppu;
+  const tData = Math.min(Date.parse(D.paivitetty) || nytMs, nytMs);
+  const luk = yhdista(D.rivit || [], key, W.alku);
+  const M = { key, viikko, W, resetMs, tData, luk, nyt: luk.length ? luk[luk.length - 1] : null, nytMs };
+  // lokerot -> segmentit [t0,t1] (viimeinen katkaistaan tiedon ikään), kaikki mallit yhteen + malleittain
+  const bs = Object.keys(W.lok).map(Number).sort((a, b) => a - b), LOK = W.LOK;
+  M.segs = bs.map((b, i) => {
+    const t0 = W.alku + b * LOK; let t1 = t0 + LOK;
+    if (t1 > tData) t1 = Math.max(tData, t0 + 60e3);
+    const mm = W.lok[b], s = { b, t0, t1, usd: 0, tok: 0, inp: 0, cr: 0, cw: 0, out: 0, req: 0, kyl: 0, kylUsd: 0, mallit: mm };
+    for (const m in mm) {
+      const o = mm[m]; s.usd += o.usd || 0; s.inp += o.inp || 0; s.cr += o.cr || 0; s.cw += o.cw || 0; s.out += o.out || 0; s.req += o.req || 0;
+      s.kyl += o.kyl || 0; s.kylUsd += o.kylUsd || 0;
+    }
+    s.tok = s.inp + s.cr + s.cw + s.out;
+    return s;
+  });
+  M.kylmaTieto = M.segs.some(s => s.kyl > 0) || Object.values(W.lok).some(mm => Object.values(mm).some(o => 'kyl' in o));
+  const osuus = (s, t0, t1) => { const a = Math.max(t0, s.t0), b = Math.min(t1, s.t1); return b > a && s.t1 > s.t0 ? (b - a) / (s.t1 - s.t0) : 0; };
+  M.cumAt = t => M.segs.reduce((c, s) => c + s.usd * Math.min(1, Math.max(0, (t - s.t0) / (s.t1 - s.t0))), 0);
+  M.sumBetween = (t0, t1, f) => M.segs.reduce((c, s) => c + f(s) * osuus(s, t0, t1), 0);
+  // sovitus: oikea % = s * kertynyt $ (suora origon kautta; ankkuri 0 % ikkunan alussa)
+  let sxy = 0, sxx = 0;
+  for (const r of luk) { const c = M.cumAt(r.t); sxy += r.v * c; sxx += c * c; }
+  M.skaala = sxx > 0 ? sxy / sxx : null;
+  M.skaalaLahde = 'lukemista';
+  if (!M.skaala) { const v = (W.teho || [])[(W.teho || []).length - 1]; if (v && v.usdPer1) { M.skaala = 1 / v.usdPer1; M.skaalaLahde = 'viimeisestä riviltä'; } }
+  const s = M.skaala;
+  M.estAt = t => (s || 0) * M.cumAt(t);
+  if (s && luk.length) {
+    const res = luk.map(r => r.v - M.estAt(r.t));
+    M.sovitus = { n: luk.length, keskimVirhe: res.reduce((a, b) => a + Math.abs(b), 0) / res.length, maxVirhe: Math.max(...res.map(Math.abs)),
+      kattaaH: (luk[luk.length - 1].t - luk[0].t) / TUNTI, kattaaOsuus: (luk[luk.length - 1].t - luk[0].t) / (tData - W.alku),
+      oikeaMuutos: luk[luk.length - 1].v - luk[0].v, arvioMuutos: M.estAt(luk[luk.length - 1].t) - M.estAt(luk[0].t) };
+  }
+  // jaksot
+  const n = M.nyt;
+  const J = [];
+  const arvioJakso = (id, nimi, t0, t1, lisa = {}) => {
+    const h = (t1 - t0) / TUNTI; if (!s || h <= 0) return null;
+    const a = M.estAt(t0), b = M.estAt(t1), u = M.sumBetween(t0, t1, x => x.usd), tk = M.sumBetween(t0, t1, x => x.tok);
+    return { id, nimi, lahde: 'arvio', rate: (b - a) / h, unc: null, a, b, t0, t1, h, usd: u, tok: tk, ...lisa };
+  };
+  const p1 = tahtiMitattu(luk, 45);
+  if (p1) J.push({ id: 'p1', nimi: `Pyrähdys (viim. ${Math.round(p1.h * 60)} min)`, lyhyt: viikko ? 'Pyrähdys' : 'Pyrähdys', lahde: 'mitattu', rate: p1.rate, unc: p1.unc, a: p1.a, b: p1.b, t0: p1.t0, t1: p1.t1, h: p1.h,
+    usd: M.sumBetween(p1.t0, p1.t1, x => x.usd), tok: M.sumBetween(p1.t0, p1.t1, x => x.tok) });
+  const p1a = n ? arvioJakso('p1a', 'Viim. 60 min (arvio)', n.t - TUNTI, n.t, { lyhyt: '60 min arvio' }) : null;
+  if (p1a) J.push(p1a);
+  if (viikko) {
+    const d0 = new Date(nytMs); d0.setHours(0, 0, 0, 0);
+    const paiva = (d) => ({ t0: d.getTime(), t1: Math.min(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(), tData) });
+    const tanaan = paiva(d0);
+    const ta = arvioJakso('tanaan', 'Tänään (' + kloTeksti(tanaan.t0) + '–nyt)', Math.max(tanaan.t0, W.alku), tanaan.t1, { lyhyt: 'Tänään' }); if (ta && ta.h >= 0.5) J.push(ta);
+    for (let k = 1; k <= 8; k++) {
+      const d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - k), t0 = d.getTime(), t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+      if (t1 <= W.alku + 6 * TUNTI) break;
+      const a0 = Math.max(t0, W.alku), nimi = k === 1 ? 'Eilen (' + VPV[d.getDay()] + ')' : pvTeksti(t0);
+      const j = arvioJakso(k === 1 ? 'eilen' : 'pv' + k, nimi, a0, t1, { lyhyt: k === 1 ? 'Eilen' : VPV[d.getDay()][0].toUpperCase() + VPV[d.getDay()].slice(1) + ' ' + d.getDate() + '.' }); if (j && j.h >= 6) J.push(j);
+    }
+  }
+  const tNyt = n ? n.t : tData, vNyt = n ? n.v : null;
+  if (n) {
+    const h = (n.t - W.alku) / TUNTI;
+    J.push({ id: 'ka', nimi: viikko ? 'Viikon keskiarvo' : 'Session keskiarvo', lyhyt: viikko ? 'Viikon ka' : 'Session ka', lahde: 'mitattu', rate: n.v / h, unc: 0.5 / h, a: 0, b: n.v, t0: W.alku, t1: n.t, h,
+      usd: M.sumBetween(W.alku, n.t, x => x.usd), tok: M.sumBetween(W.alku, n.t, x => x.tok) });
+    const hReset = (resetMs - n.t) / TUNTI;
+    M.hReset = hReset;
+    J.push({ id: 'turva', nimi: 'Turvaraja (riittää tasan resetiin)', lyhyt: 'Turvaraja', lahde: 'laskettu', rate: hReset > 0 ? (100 - n.v) / hReset : null, unc: null, a: n.v, b: 100, t0: n.t, t1: resetMs, h: hReset });
+  }
+  const kokoH = (W.loppu - W.alku) / TUNTI;
+  J.push({ id: 'tasa', nimi: viikko ? 'Tasainen 7 vrk tahti' : 'Tasainen 5 h tahti', lyhyt: 'Tasatahti', lahde: 'laskettu', rate: 100 / kokoH, unc: null, a: 0, b: 100, t0: W.alku, t1: W.loppu, h: kokoH });
+  M.jaksot = J;
+  M.J = id => J.find(j => j.id === id) || null;
+  // projektio: nyt-pisteestä tahdilla rate
+  M.proj = rate => {
+    if (!n || !okN(rate)) return null;
+    const jaljella = 100 - n.v;
+    if (jaljella <= 0) return { osuu: true, t: n.t, y: 100, h: 0 };
+    if (rate <= 0) return { osuu: false, y: n.v, t: resetMs, h: Infinity };
+    const h = jaljella / rate, t = n.t + h * TUNTI;
+    if (t <= resetMs) return { osuu: true, t, y: 100, h };
+    return { osuu: false, t: resetMs, y: Math.min(100, n.v + rate * (resetMs - n.t) / TUNTI), h };
+  };
+  // pää-vastaus
+  const r1j = M.J('p1') || M.J('p1a');
+  M.vastaus = n ? (() => {
+    const turva = M.J('turva').rate, pr = r1j ? M.proj(r1j.rate) : null;
+    let luokka = 'epavarma', teksti = '';
+    if (r1j && pr) {
+      const lo = M.proj(r1j.rate + (r1j.unc || 0)), hi = M.proj(Math.max(0, r1j.rate - (r1j.unc || 0)));
+      const eroaa = (lo.osuu !== hi.osuu) || (pr.osuu && lo.osuu && hi.osuu && false);
+      luokka = eroaa ? 'epavarma' : (pr.osuu ? 'huono' : 'ok');
+      teksti = pr.osuu ? `loppuu ${aikaTeksti(pr.t)}` : `riittää resetiin (päätyy ~${r1(pr.y)} %)`;
+      if (eroaa) teksti = `epävarma: ${lo.osuu ? 'loppuu ' + aikaTeksti(lo.t) : 'riittää'} … ${hi.osuu ? 'loppuu ' + aikaTeksti(hi.t) : 'riittää resetiin'}`;
+    }
+    return { jaljella: 100 - n.v, turva, r1: r1j, luokka, teksti, pr };
+  })() : null;
+  return M;
+}
+
+// kylmä/lämmin: tunti on kylmä jos vähintään 20 % sen pyynnöistä rakensi prefixin uudelleen (cache-kirjoitus > cache-luku)
+function kylmat(M) {
+  const s = M.skaala || 0;
+  const rivit = M.segs.map(x => ({ seg: x, osuus: x.req ? x.kyl / x.req : 0, cwOsuus: x.cr + x.cw ? x.cw / (x.cr + x.cw) : 0 }));
+  const kylmaTunti = r => M.kylmaTieto ? (r.seg.kyl > 0 && r.osuus >= 0.2) : r.cwOsuus >= 0.08;
+  const kuuma = rivit.filter(kylmaTunti);
+  const usdKaikki = M.segs.reduce((a, x) => a + x.usd, 0);
+  const kylPyynnot = M.segs.reduce((a, x) => a + x.kyl, 0), kylUsd = M.segs.reduce((a, x) => a + x.kylUsd, 0), req = M.segs.reduce((a, x) => a + x.req, 0);
+  return { rivit, kylmaTunti, kylmaTunnit: kuuma, kylPyynnot, kylUsd, usdKaikki, req, kylPct: s * kylUsd, osuusUsd: usdKaikki ? kylUsd / usdKaikki : null, tiedossa: M.kylmaTieto };
+}
+
+// kaistat: tunneista johdetut jaksot (tauko = alle 15 % keskitahdista ≥ 3 h; aktiivinen; korkea = segmentin tahti > 1.4 × keskiarvo)
+function kaistat(M) {
+  const s = M.skaala; if (!s) return [];
+  const t0 = M.W.alku, t1 = M.tData, LOK = M.W.LOK, nL = Math.max(1, Math.round((t1 - t0) / LOK));
+  const r = new Array(nL).fill(0);
+  for (const x of M.segs) { const i = Math.floor((x.t0 - t0) / LOK); if (i >= 0 && i < nL) r[i] += s * x.usd / ((x.t1 - x.t0) / TUNTI); }
+  const ka = r.reduce((a, b) => a + b, 0) / nL;
+  if (!(ka > 0)) return [];
+  const minTauko = M.viikko ? 3 : Math.ceil(30 * 60e3 / LOK); // viikko: 3 h; 5 h: 30 min
+  const idle = r.map(v => v < 0.15 * ka);
+  const luokat = new Array(nL).fill('akt');
+  for (let i = 0; i < nL;) {
+    if (!idle[i]) { i++; continue; }
+    let j = i; while (j < nL && idle[j]) j++;
+    if (j - i >= minTauko) for (let k = i; k < j; k++) luokat[k] = 'tauko';
+    i = j;
+  }
+  const out = [];
+  for (let i = 0; i < nL;) {
+    let j = i; while (j < nL && luokat[j] === luokat[i]) j++;
+    const keski = r.slice(i, j).reduce((a, b) => a + b, 0) / (j - i);
+    const lkm = j - i;
+    if (luokat[i] === 'tauko') out.push({ t0: t0 + i * LOK, t1: t0 + j * LOK, laji: 'tauko', keski, nimi: 'tauko' });
+    else if (lkm * LOK >= (M.viikko ? 2 : 1) * TUNTI / (M.viikko ? 1 : 6)) {
+      const korkea = keski > 1.4 * ka, d = new Date(t0 + i * LOK);
+      out.push({ t0: t0 + i * LOK, t1: t0 + j * LOK, laji: korkea ? 'korkea' : 'akt', keski, nimi: (M.viikko ? VPV[d.getDay()][0].toUpperCase() + VPV[d.getDay()].slice(1) : kloTeksti(t0 + i * LOK)) + (korkea ? ' pyrähdys' : '') });
+    }
+    i = j;
+  }
+  return out;
+}
+
+// päivät (paikallinen vuorokausi) ja tunnit: % = skaala × malli-$ ; kylmä-% = skaala × kylmien pyyntöjen $
+function paivat(M) {
+  const s = M.skaala || 0, W = M.W, d = new Date(W.alku); d.setHours(0, 0, 0, 0);
+  const out = [];
+  for (let t = d.getTime(); t < M.tData; ) {
+    const dd = new Date(t), seur = new Date(dd.getFullYear(), dd.getMonth(), dd.getDate() + 1).getTime();
+    const a = Math.max(t, W.alku), b = Math.min(seur, M.tData), mallit = {};
+    for (const m of ['opus', 'sonnet', 'haiku']) mallit[m] = s * M.sumBetween(a, b, x => (x.mallit[m] && x.mallit[m].usd) || 0);
+    out.push({ t0: a, t1: b, paiva0: t, label: VPV[dd.getDay()][0].toUpperCase() + VPV[dd.getDay()].slice(1) + ' ' + dd.getDate() + '.', mallit,
+      yht: mallit.opus + mallit.sonnet + mallit.haiku, kylma: s * M.sumBetween(a, b, x => x.kylUsd), osittainen: (b - a) < 23 * TUNTI });
+    t = seur;
+  }
+  return out;
+}
+function tunnit(M, t0, t1) { // yksi rivi per segmentti (tunti) aikavälillä
+  const s = M.skaala || 0;
+  return M.segs.filter(x => x.t1 > t0 && x.t0 < t1).map(x => {
+    const mallit = {}; for (const m of ['opus', 'sonnet', 'haiku']) mallit[m] = s * ((x.mallit[m] && x.mallit[m].usd) || 0);
+    return { seg: x, t0: x.t0, t1: x.t1, mallit, yht: s * x.usd, kylma: s * x.kylUsd };
+  });
+}
+// oikeista lukemista tuntitaso: vain lukemaparista joiden väli ≥ 45 min, ja vain tunneille jotka osuvat pariin ≥ 45 min -> parin keskitahti (%/h)
+function mitatutTunnit(M) {
+  // jokaiselle kokonaiselle tunnille [t0,t1]: viimeinen lukema ≤ t0 ja ensimmäinen lukema ≥ t1; jos väli ≥ 45 min -> sen keskitahti (%/h) ± 1 % / väli
+  const out = [], L = M.luk;
+  for (const x of M.segs) {
+    if (x.t1 - x.t0 < M.W.LOK - 1) continue;
+    let A = null, B = null;
+    for (const r of L) { if (r.t <= x.t0) A = r; if (r.t >= x.t1 && !B) B = r; }
+    if (!A || !B || B.t - A.t < 45 * 60e3 || B.v < A.v) continue;
+    const h = (B.t - A.t) / TUNTI;
+    out.push({ t0: x.t0, rate: (B.v - A.v) / h, unc: 1 / h, aika: h * 60 });
+  }
+  return out;
+}
+
+// kompaktiomalli: keskihinta per pyyntö, jos autocompact-raja on W (ctx kasvaa g per pyyntö f:stä W:hen, kompaktio maksaa K)
+function kompMalli(K) {
+  if (!K || !K.rajat || !K.kayra) return null;
+  const op = K.kayra.filter(x => x.malli === 'opus-5-5' && x.n >= 100).sort((a, b) => a.k0 - b.k0);
+  if (op.length < 3) return null;
+  const c = ctxK => { // mediaani-$ interpoloituna ämpärien keskipisteistä (k0+25), reunoilla vakio
+    const pts = op.map(x => [x.k0 + 25, x.med]);
+    if (ctxK <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) if (ctxK <= pts[i][0]) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; return y0 + (y1 - y0) * (ctxK - x0) / (x1 - x0); }
+    const a = pts[pts.length - 2], b = pts[pts.length - 1]; return b[1] + (b[1] - a[1]) * (ctxK - b[0]) / (b[0] - a[0]);
+  };
+  const med = a => { a = a.slice().sort((x, y) => x - y); return a.length ? a[a.length >> 1] : null; };
+  const viim = K.rajat.filter(r => r.trig === 'auto' && r.pre && r.ensi && r.n > 5).slice(-60);
+  if (viim.length < 5) return null;
+  const f = med(viim.map(r => r.ensi)) / 1e3, g = med(viim.map(r => (r.pre - r.ensi) / r.n)) / 1e3;
+  const ensiUsd = med(viim.filter(r => r.ensiUsd != null).map(r => r.ensiUsd));
+  const Kx = Math.max(0, ensiUsd - c(f)); // ensimmäisen pyynnön ylimääräinen hinta (prefixin uudelleenrakennus)
+  const kayra = [];
+  for (let W = Math.ceil(f / 50) * 50 + 50; W <= 600; W += 25) {
+    const nReq = (W - f) / g; let sum = 0;
+    for (let i = 0; i < nReq; i++) sum += c(f + i * g);
+    kayra.push({ x: W, y: (Kx + sum) / nReq, n: nReq });
+  }
+  return { f, g, Kx, kayra, c, optimi: kayra.reduce((a, b) => b.y < a.y ? b : a) };
+}
+// ==/LASKENTA==
+
+if (typeof document === 'undefined') { /* testi: vain laskenta */ }
+else {
 const $ = id => document.getElementById(id);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-let D = null, VALI = 'viikko', kaaviot = [];
-
-const pad = n => String(n).padStart(2, '0');
-const aikaTeksti = ms => new Date(ms).toLocaleString('fi-FI', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+let D = null, VALI = 'viikko', MALLI_VALINTA = 'kaikki', PAIVA_VALINTA = null, kaaviot = [];
 const ok = ms => ms != null && !isNaN(ms);
-// jäljellä oleva aika: "2 pv 3 h" / "4 h 12 min" / "12 min" / "nollautui"
 function jaljella(ms) {
   if (!ok(ms)) return '–';
   const s = Math.round((ms - Date.now()) / 1000);
@@ -100,24 +468,14 @@ function jaljella(ms) {
 }
 const ika = () => Math.round((Date.now() - Date.parse(D.paivitetty)) / 60e3);
 
-// tiilet: päivittyvät myös 30 s välein (laskuri + "N min sitten")
-// "loppuu arviolta": viimeisten lukemien MITATTU tahti (>= 60 min ja >= 4 väliä taaksepäin, vain tämän ikkunan sisällä, ei nollauksen yli)
-function loppuArvio(key, alku, resetMs) {
-  const R = D.rivit.filter(r => r[key] != null && Date.parse(r.t) >= alku);
-  if (R.length < 2) return 'loppuu arviolta: ei tarpeeksi lukemia';
-  const last = R[R.length - 1], tL = Date.parse(last.t);
-  let j = R.length - 2;
-  while (j > 0 && (R.length - 1 - j < 4 || tL - Date.parse(R[j].t) < 60 * 60e3) && R[j][key] <= R[j + 1][key]) j--;
-  if (R[j][key] > R[j + 1][key]) j++; // nollaus väliin -> käytetään vain nollauksen jälkeisiä
-  const n = R.length - j, h = (tL - Date.parse(R[j].t)) / 3600e3, dp = last[key] - R[j][key], tahti = h > 0 ? dp / h : 0;
-  const sel = ` (tahti ${tahti.toFixed(1)} %/h, ${n} lukemaa, ${Math.round(h * 60)} min)`;
-  if (n < 2 || h <= 0) return 'loppuu arviolta: ei tarpeeksi lukemia';
-  if (last[key] >= 100) return 'täynnä (100 %)';
-  const reset = ok(resetMs) ? ' (nollautuu ' + aikaTeksti(resetMs) + ')' : '';
-  if (tahti <= 0) return 'ei lopu ennen nollausta' + reset + sel;
-  const loppu = tL + (100 - last[key]) / tahti * 3600e3;
-  if (ok(resetMs) && loppu > resetMs) return 'ei lopu ennen nollausta' + reset + sel;
-  return 'loppuu arviolta: ' + aikaTeksti(loppu) + sel;
+// loppuu arviolta: sama laskenta kuin vastauksessa (mitattu tahti ≥ 45 min ikkunasta, epävarmuus näkyviin)
+function loppuArvio(key) {
+  const M = malli(D, key, Date.now());
+  if (!M.nyt) return 'loppuu arviolta: ei lukemia';
+  const A = M.vastaus; if (!A || !A.r1) return 'loppuu arviolta: ei tarpeeksi pitkää lukemaväliä (≥ 45 min)';
+  const sel = ` (tahti ${luku(A.r1.rate)} ±${luku(A.r1.unc || 0)} %/h${A.r1.lahde === 'arvio' ? ', arvio' : ''}, ${Math.round(A.r1.h * 60)} min)`;
+  if (M.nyt.v >= 100) return 'täynnä (100 %)';
+  return (A.pr.osuu ? 'loppuu arviolta: ' + aikaTeksti(A.pr.t) : 'ei lopu ennen nollausta') + sel;
 }
 
 function tiilet() {
@@ -125,130 +483,429 @@ function tiilet() {
   const a = ika(), vanha = a > 40;
   const tiili = (otsikko, arvo, ala, lisa = '') => `<div class="tiili ${lisa}"><div class="otsikko">${otsikko}</div><div class="arvo">${arvo}</div><div class="ala">${ala}</div></div>`;
   $('tiilet').innerHTML =
-    tiili('Sessio (5 h)', n.sessio != null ? n.sessio + ' %' : '–', (ok(Date.parse(n.sessioResets)) ? `nollautuu ${jaljella(Date.parse(n.sessioResets))} · ${aikaTeksti(Date.parse(n.sessioResets))}` : '') + '<br>' + loppuArvio('sessio', D.sessio.alku, Date.parse(n.sessioResets))) +
-    tiili('Viikko', n.viikko != null ? n.viikko + ' %' : '–', (ok(Date.parse(n.viikkoResets)) ? `nollautuu ${jaljella(Date.parse(n.viikkoResets))} · ${aikaTeksti(Date.parse(n.viikkoResets))}` : '') + '<br>' + loppuArvio('viikko', D.viikko.alku, Date.parse(n.viikkoResets))) +
+    tiili('Sessio (5 h)', n.sessio != null ? n.sessio + ' %' : '–', (ok(Date.parse(n.sessioResets)) ? `nollautuu ${jaljella(Date.parse(n.sessioResets))} · ${aikaTeksti(Date.parse(n.sessioResets))}` : '') + '<br>' + loppuArvio('sessio')) +
+    tiili('Viikko', n.viikko != null ? n.viikko + ' %' : '–', (ok(Date.parse(n.viikkoResets)) ? `nollautuu ${jaljella(Date.parse(n.viikkoResets))} · ${aikaTeksti(Date.parse(n.viikkoResets))}` : '') + '<br>' + loppuArvio('viikko')) +
     tiili(`tokenia / 1 % (${VALI === 'viikko' ? 'viikko' : '5 h'})`, v.tokPer1 ? (v.tokPer1 / 1e6).toFixed(1) + ' M' : '–', v.ilmanCrPer1 ? `ilman cache-lukuja ${(v.ilmanCrPer1 / 1e6).toFixed(2)} M` : '') +
     tiili(`$ / 1 % API-hintaa (${VALI === 'viikko' ? 'viikko' : '5 h'})`, v.usdPer1 ? '$' + v.usdPer1.toFixed(2) : '–', `${W.pyyntoja} pyyntöä ikkunassa`) +
     tiili('päivitetty', a + ' min sitten', aikaTeksti(Date.parse(D.paivitetty)), (vanha ? 'vanha ' : '') + 'leveä');
 }
 
-function otsikot(W, v) {
-  const nimi = VALI === 'viikko' ? 'viikko' : '5 h sessio';
-  $('otsikko1').textContent = `${nimi}: ${v.p ?? '–'} % · ${v.tokPer1 ? (v.tokPer1 / 1e6).toFixed(1) + 'M' : '–'} tokenia / 1 % · ${v.usdPer1 ? '$' + v.usdPer1.toFixed(2) : '–'} API-hintaa / 1 % · ikkuna ${aikaTeksti(W.alku)} – ${aikaTeksti(W.loppu)}`;
-  $('otsikko2').textContent = `jokainen kiintiörivi (${W.teho.length} kpl) · korkeampi = enemmän tokeneita samalla kiintiöllä`;
-}
-
-// aika-akseli: ikkunan rajat, muotoilu ikkunan mukaan
-const aikaAkseli = (W, viikko, xmax) => ({
-  type: 'time', min: W.alku, max: xmax,
+// ---------- yhteiset kaaviovälineet ----------
+const aikaAkseli = (min, max, viikko) => ({
+  type: 'time', min, max,
   time: { displayFormats: viikko ? { day: 'd.M.', hour: 'd.M. HH:mm' } : { hour: 'HH:mm', minute: 'HH:mm' } },
-  ticks: { color: css('--muted'), maxRotation: 0, autoSkipPadding: 12, maxTicksLimit: 8 },
+  ticks: { color: css('--muted'), maxRotation: 0, autoSkipPadding: 12, maxTicksLimit: 7 },
   grid: { color: css('--line') },
 });
-const akseliY = (teksti, lisa = {}) => ({ title: { display: true, text: teksti, color: css('--muted') }, ticks: { color: css('--muted') }, grid: { color: css('--line') }, ...lisa });
-const selite = { labels: { color: css('--fg'), boxWidth: 12, font: { size: 11 } } };
+const akseliY = (teksti, lisa = {}) => ({ title: { display: !!teksti, text: teksti, color: css('--muted'), font: { size: 11 } }, ticks: { color: css('--muted') }, grid: { color: css('--line') }, ...lisa });
+const selite = { labels: { color: css('--fg'), boxWidth: 10, font: { size: 10 }, filter: it => !(it.text || '').startsWith('·') } };
+const ala = (c, a) => c + a; // hex + alpha-hex
+const VARIT = { p1: '--p1', p1a: '--p1', tanaan: '--p2', ka: '--p3', tasa: '--p4', turva: '--p5' };
 
-function piirraKaaviot() {
-  kaaviot.forEach(c => c.destroy()); kaaviot = [];
-  if (typeof Chart === 'undefined') { $('virhe').textContent = 'Chart.js ei latautunut (CDN)'; return; }
-  const viikko = VALI === 'viikko', W = viikko ? D.viikko : D.sessio, key = viikko ? 'viikko' : 'sessio';
-  const v = W.teho[W.teho.length - 1] || {}, usd1 = v.usdPer1, tuntia = W.LOK / 3600e3;
-  otsikot(W, v);
-
-  // kaavio 1: palkit = MITATTU %/h (claude.ai:n peräkkäiset lukemat: Δ% / Δtunnit, palkki kattaa lukemavälin),
-  // keltainen viiva = kertynyt arvio (transkriptit), punaiset = claude.ai:n oikea %
-  const bs = Object.keys(W.lok).map(Number).sort((a, b) => a - b);
-  const X = bs.map(b => W.alku + b * W.LOK + W.LOK / 2);
-  const lukemat = D.rivit.filter(r => r[key] != null && Date.parse(r.t) >= W.alku);
-  const valit = [];
-  for (let i = 1; i < lukemat.length; i++) {
-    const x0 = Date.parse(lukemat[i - 1].t), x1 = Date.parse(lukemat[i].t), dp = lukemat[i][key] - lukemat[i - 1][key], h = (x1 - x0) / 3600e3;
-    if (dp < 0 || h <= 0) continue; // ikkuna nollautui -> ei mittausta
-    valit.push({ x: (x0 + x1) / 2, y: dp / h, x0, x1, dp, min: h * 60 });
-  }
-  // palkit piirretään itse: Chart.js:n palkki ei osaa kattaa epätasaista aikaväliä
-  const valiPalkit = {
-    id: 'valiPalkit',
-    beforeDatasetsDraw(chart) {
-      const ds = chart.data.datasets.find(d => d.valit); if (!ds || !chart.isDatasetVisible(chart.data.datasets.indexOf(ds))) return;
-      const { ctx, scales: { x, y }, chartArea: ca } = chart, y0 = y.getPixelForValue(0);
+// taustakaistat (johdettu datasta) + nyt-viiva + pallojen tekstit
+function pluginit(kaistaLista, nytX) {
+  return [{
+    id: 'kaistat',
+    beforeDatasetsDraw(ch) {
+      if (!kaistaLista || !kaistaLista.length) return;
+      const { ctx, scales: { x }, chartArea: ca } = ch;
       ctx.save(); ctx.beginPath(); ctx.rect(ca.left, ca.top, ca.right - ca.left, ca.bottom - ca.top); ctx.clip();
-      ctx.fillStyle = ds.backgroundColor; ctx.strokeStyle = ds.borderColor; ctx.lineWidth = 1;
-      for (const p of ds.data) {
-        const l = x.getPixelForValue(p.x0), r = x.getPixelForValue(p.x1), t = y.getPixelForValue(p.y), w = Math.max(r - l, 1);
-        ctx.fillRect(l, Math.min(t, y0), w, Math.abs(y0 - t)); ctx.strokeRect(l + .5, Math.min(t, y0), Math.max(w - 1, 0), Math.abs(y0 - t));
+      for (const b of kaistaLista) {
+        const l = x.getPixelForValue(b.t0), r = x.getPixelForValue(b.t1);
+        ctx.fillStyle = b.laji === 'tauko' ? css('--line') + '55' : b.laji === 'korkea' ? css('--amber') + '40' : css('--accent') + '18';
+        ctx.fillRect(l, ca.top, r - l, ca.bottom - ca.top);
+      }
+      ctx.restore();
+      ctx.save(); ctx.font = '9px system-ui'; ctx.fillStyle = css('--muted'); ctx.textAlign = 'center';
+      for (const b of kaistaLista) {
+        if (b.laji === 'tauko') continue;
+        const l = Math.max(x.getPixelForValue(b.t0), ca.left), r = Math.min(x.getPixelForValue(b.t1), ca.right);
+        const teksti = b.nimi.replace(' pyrähdys', ' ▲');
+        if (r - l > ctx.measureText(teksti).width + 3) ctx.fillText(teksti, (l + r) / 2, ca.top + 10);
       }
       ctx.restore();
     },
-  };
-  let kert = 0;
-  const kum = usd1 ? bs.map((b, i) => {
-    kert += Object.values(W.lok[b]).reduce((s, o) => s + (o.usd || 0), 0) / usd1;
-    return { x: X[i], y: kert };
-  }) : [];
-  const oikea = lukemat.map(r => ({ x: Date.parse(r.t), y: r[key] }));
-  const xmax = new Date(Math.max(W.alku + (bs.length ? (bs[bs.length - 1] + 1) * W.LOK : 0), oikea.length ? oikea[oikea.length - 1].x : 0) + (viikko ? 3600e3 : 6 * 60e3));
-  const yMax = Math.max(100, Math.max(0, ...kum.map(p => p.y)) * 1.05);
-  kaaviot.push(new Chart($('k1'), {
-    type: 'line',
-    plugins: [valiPalkit],
-    data: { datasets: [
-      { type: 'line', order: 2, label: 'mitattu %/h (claude.ai)', valit: true, data: valit, yAxisID: 'y', showLine: false, pointRadius: 0, pointHoverRadius: 5, borderColor: css('--nopeus'), backgroundColor: css('--nopeus') + '66' },
-      { type: 'line', order: 0, label: 'arvio kertyneestä %:sta (transkriptit)', data: kum, yAxisID: 'y1', borderColor: css('--amber'), backgroundColor: css('--amber'), borderWidth: 2, pointRadius: 0, tension: 0 },
-      { type: 'line', order: 0, label: 'claude.ai:n oikea %', data: oikea, yAxisID: 'y1', showLine: false, borderColor: css('--red'), backgroundColor: css('--red'), pointRadius: 4 },
-    ] },
+    afterDatasetsDraw(ch) {
+      const { ctx, scales: { x }, chartArea: ca } = ch;
+      if (nytX != null) {
+        const px = x.getPixelForValue(nytX);
+        if (px >= ca.left && px <= ca.right) {
+          ctx.save(); ctx.strokeStyle = css('--fg'); ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+          ctx.beginPath(); ctx.moveTo(px, ca.top); ctx.lineTo(px, ca.bottom); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = css('--fg'); ctx.font = '10px system-ui'; ctx.textAlign = px > ca.right - 30 ? 'right' : 'left'; ctx.fillText('nyt', px + (px > ca.right - 30 ? -3 : 3), ca.bottom - 4);
+          ctx.restore();
+        }
+      }
+      ctx.save(); ctx.font = '10px system-ui';
+      ch.data.datasets.forEach((ds, i) => {
+        if (!ds.pallo || !ch.isDatasetVisible(i)) return;
+        const p = ds.data[0], px = x.getPixelForValue(p.x), py = ch.scales.y.getPixelForValue(p.y);
+        const vasen = px > ca.right - 90;
+        ctx.fillStyle = ds.backgroundColor; ctx.textAlign = vasen ? 'right' : 'left';
+        ctx.fillText(ds.pallo.teksti, px + (vasen ? -8 : 8), Math.min(ca.bottom - 4, Math.max(ca.top + 10, py + ds.pallo.dy)));
+      });
+      ctx.restore();
+    },
+  }];
+}
+
+// projektiot: viivat + pallot (100 % tai reset)
+function projektioSetit(M, idt) {
+  const ds = [], n = M.nyt; if (!n) return ds;
+  idt.forEach((id, k) => {
+    const j = M.J(id); if (!j || !okN(j.rate)) return;
+    const p = M.proj(j.rate); if (!p) return;
+    const vari = css(VARIT[id] || '--p4');
+    const nimi = `${j.lyhyt} ${luku(j.rate)} %/h`;
+    ds.push({ type: 'line', label: nimi, data: [{ x: n.t, y: n.v }, { x: p.t, y: p.y }], borderColor: vari, backgroundColor: vari, borderWidth: 1.6, borderDash: id === 'tasa' ? [2, 3] : [5, 3], pointRadius: 0, order: 3 });
+    const teksti = p.osuu ? `klo ${kloTeksti(p.t)}${p.t - n.t > 20 * TUNTI ? ' ' + VPV[new Date(p.t).getDay()] : ''}` : `päätyy ${r1(p.y)} %`;
+    ds.push({ type: 'line', label: '· pallo ' + id, data: [{ x: p.t, y: p.y }], showLine: false, borderColor: vari, backgroundColor: vari, pointRadius: 5, pointHoverRadius: 7, pallo: { teksti, dy: 12 + k * 12 }, order: 1 });
+  });
+  return ds;
+}
+
+// ---------- 1. vastaus ----------
+function piirraVastaus(M) {
+  const el = $('vastaus'), nimi = M.viikko ? 'resetiin' : 'sessio-resetiin';
+  if (!M.nyt || !M.vastaus) { el.className = 'vastaus'; el.innerHTML = '<h2>Ei lukemia tässä ikkunassa</h2><div class="pieni">Ikkuna on vaihtunut eikä uusia lukemia ole vielä (lukemat ~15 min välein).</div>'; return; }
+  const A = M.vastaus, v = M.nyt.v, lukemaIka = Math.round((Date.now() - M.nyt.t) / 60e3);
+  el.className = 'vastaus ' + A.luokka;
+  const r1t = A.r1 ? `nykyinen ${A.r1.lahde === 'mitattu' ? Math.round(A.r1.h * 60) + ' min' : '1-h'} tahti ${luku(A.r1.rate)}${A.r1.unc ? ' ±' + luku(A.r1.unc) : ''} %/h${A.r1.lahde === 'arvio' ? ' (arvio transkripteista)' : ''}` : 'nykyistä tahtia ei voi mitata (lukemaväli < 45 min)';
+  el.innerHTML = `<h2>Riittääkö jäljellä oleva ${100 - v} % ${nimi} (${aikaTeksti(M.resetMs)})?</h2>` +
+    `<div class="iso">Riittää jos tahti alle ${luku(A.turva)} %/h · ${r1t}${A.teksti ? ' → ' + A.teksti : ''}</div>` +
+    `<div class="pieni">Lukema ${v} % klo ${kloTeksti(M.nyt.t)} (${lukemaIka} min sitten). Tahti on mitattu kokonaisluku-%:eista vähintään 45 min ikkunasta, joten ± kertoo pyöristyksen epävarmuuden (±1 % / ikkunan pituus). Tämä on tilauksen yhden mittarin ennuste: claude.ai-chatit ja muut laitteet ovat mukana %:ssa mutta eivät transkripteissa.</div>`;
+}
+
+// ---------- 2. kiintiökäyrä ----------
+function piirraKayra(M) {
+  const W = M.W, n = M.nyt, s = M.skaala, viikko = M.viikko;
+  $('h_kayra').textContent = viikko ? 'Viikon kiintiökäyrä ja projektiot' : 'Session kiintiökäyrä ja projektiot';
+  const kaistaLista = kaistat(M);
+  const est = [];
+  if (s) {
+    est.push({ x: W.alku, y: 0 });
+    for (const x of M.segs) { est.push({ x: x.t0, y: M.estAt(x.t0) }); est.push({ x: x.t1, y: M.estAt(x.t1) }); }
+  }
+  const dsets = [
+    { label: 'tasainen ' + (viikko ? '7 vrk' : '5 h') + ' tahti', data: [{ x: W.alku, y: 0 }, { x: W.loppu, y: 100 }], borderColor: css('--muted'), borderDash: [2, 4], borderWidth: 1.5, pointRadius: 0, order: 5 },
+    { label: '100 %', data: [{ x: W.alku, y: 100 }, { x: W.loppu, y: 100 }], borderColor: css('--red'), borderWidth: 1.5, pointRadius: 0, order: 5 },
+    { label: 'arvio transkripteista (ohut)', data: est, borderColor: css('--amber'), borderDash: [6, 3], borderWidth: 1.6, pointRadius: 0, order: 4 },
+    { label: 'oikeat lukemat (claude.ai)', data: M.luk.map(r => ({ x: r.t, y: r.v })), borderColor: css('--accent'), backgroundColor: css('--red'), borderWidth: 4, pointRadius: 3.5, order: 2 },
+    ...projektioSetit(M, M.viikko ? ['p1', 'tanaan', 'ka', 'tasa', 'turva'] : ['p1', 'ka', 'tasa', 'turva']),
+  ];
+  const so = M.sovitus;
+  $('o_kayra').textContent = `x = koko ${viikko ? 'viikon' : 'session'} ikkuna (${aikaTeksti(W.alku)} → ${aikaTeksti(W.loppu)} = nollautuminen) · paksu viiva + pisteet = claude.ai:n oikeat lukemat · katkoviiva = tunneista rekonstruoitu arvio transkripteista · taustakaistat johdettu tunneista (▲ = tahti yli 1.4 × keskiarvo, harmaa = tauko)`;
+  $('s_kayra').innerHTML = so
+    ? `<b>Sovitus:</b> arvion skaala ${(s * 100).toFixed(3)} %-yks per 100 $ API-hintaa (${M.skaalaLahde}), ankkuri 0 % ikkunan alussa. Arvio poikkeaa ${so.n} oikeasta lukemasta keskimäärin ±${so.keskimVirhe.toFixed(2)} %-yks (suurin ${so.maxVirhe.toFixed(2)}; pelkkä kokonaisluku-pyöristys on jo ±0.5). Oikeat lukemat kattavat vain ${kesto(so.kattaaH)} eli ${(so.kattaaOsuus * 100).toFixed(0)} % ikkunasta, joten käyrän muoto sitä aiemmin on <b>skaalattu arvio, ei mitattu</b>. Muutos ensimmäisestä viimeiseen lukemaan: oikea ${so.oikeaMuutos} %-yks, arvio ${so.arvioMuutos.toFixed(1)}.`
+    : 'Ei sovitusta: ei oikeita lukemia tässä ikkunassa.';
+  const yMax = Math.max(105, ...est.map(p => p.y + 2));
+  kaaviot.push(new Chart($('c_kayra'), {
+    type: 'line', plugins: pluginit(kaistaLista, n ? n.t : null),
+    data: { datasets: dsets },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: { legend: selite, tooltip: { callbacks: { label: c => c.raw && c.raw.x0 != null ? ` mitattu ${c.raw.y.toFixed(1)} %/h (Δ${c.raw.dp} % / ${c.raw.min.toFixed(0)} min)` : ` ${c.dataset.label}: ${(+c.raw.y).toFixed(1)}` } } },
-      scales: {
-        x: aikaAkseli(W, viikko, xmax),
-        y: akseliY('mitattu kulutus % / h', { beginAtZero: true }),
-        y1: akseliY('kertynyt % ikkunassa', { position: 'right', min: 0, max: yMax, grid: { drawOnChartArea: false } }),
-      },
+      responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      interaction: { mode: 'nearest', intersect: true },
+      plugins: { legend: selite, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${(+c.raw.y).toFixed(1)} % · ${aikaTeksti(c.raw.x)}` } } },
+      scales: { x: aikaAkseli(W.alku, W.loppu, viikko), y: akseliY('käytetty % ikkunasta', { min: 0, max: yMax }) },
     },
   }));
+  return kaistaLista;
+}
 
-  // kaavio 3: tokenit / h malleittain ILMAN cache-lukuja (inp + cw + out) -- transkripteista, ei %:ia
-  const palkit = ['opus', 'sonnet', 'haiku'].map(m => ({
-    type: 'bar', label: m, backgroundColor: css('--' + m), stack: 'malli', barPercentage: 1, categoryPercentage: 1,
-    data: bs.map((b, i) => { const o = W.lok[b][m] || {}; return { x: X[i], y: ((o.inp || 0) + (o.cw || 0) + (o.out || 0)) / tuntia / 1e3 }; }),
-  }));
-  $('otsikko3').textContent = 'syöte + cache-kirjoitus + tuloste (cache-luvut jätetty pois, koska ne kasvavat kontekstin mukana eivätkä selitä kiintiötä) · eri asia kuin %/h-palkit';
-  kaaviot.push(new Chart($('k3'), {
-    type: 'bar',
-    data: { datasets: palkit },
+// ---------- 3. nopeuspylväät ----------
+function piirraNopeus(M) {
+  const n = M.nyt, J = M.jaksot.filter(j => okN(j.rate) && j.id !== 'p1a' || j.id === 'p1a' && !M.J('p1'));
+  const turva = M.J('turva'), tasa = M.J('tasa');
+  $('o_nopeus').textContent = 'kirkas pylväs = mitattu claude.ai:n %-lukemista (≥ 45 min ikkuna, ± pyöristys) · haalea = arvio transkripteista · punainen = nopeampi kuin turvaraja (ei riitä resetiin), vihreä = riittää';
+  const rivit = J.map(j => ({ j, y: j.lyhyt + (j.lahde === 'arvio' ? ' ~' : '') }));
+  $('w_nopeus').style.height = Math.max(180, rivit.length * 30 + 50) + 'px';
+  const turvaR = turva ? turva.rate : null, tasaR = tasa.rate;
+  const vari = j => j.id === 'turva' ? css('--p5') : j.id === 'tasa' ? css('--p4') : (turvaR != null && j.rate > turvaR ? css('--red') : css('--green')) + (j.lahde === 'mitattu' ? '' : '77');
+  const maxX = Math.max(...J.map(j => j.rate + (j.unc || 0)), turvaR || 0) * 2.1;
+  const tekstit = { id: 'tekstit', afterDatasetsDraw(ch) {
+    const { ctx, scales: { x, y }, chartArea: ca } = ch;
+    ctx.save(); ctx.font = '10px system-ui'; ctx.textBaseline = 'middle';
+    rivit.forEach((r, i) => {
+      const px = x.getPixelForValue(r.j.rate + (r.j.unc || 0)), py = y.getPixelForValue(i);
+      ctx.fillStyle = css('--fg'); ctx.textAlign = 'left';
+      let t = `${luku(r.j.rate)}`; if (r.j.unc) t += ` ±${luku(r.j.unc)}`; t += ` %/h · ${luku(r.j.rate * 24)} %/vrk`;
+      const w = ctx.measureText(t).width;
+      if (px + w + 6 > ca.right) { ctx.textAlign = 'right'; ctx.fillStyle = '#fff'; ctx.fillText(t, x.getPixelForValue(r.j.rate) - 4, py); }
+      else ctx.fillText(t, px + 4, py);
+      if (r.j.unc) { const a = x.getPixelForValue(Math.max(0, r.j.rate - r.j.unc)), b = x.getPixelForValue(r.j.rate + r.j.unc); ctx.strokeStyle = css('--fg'); ctx.beginPath(); ctx.moveTo(a, py); ctx.lineTo(b, py); ctx.moveTo(a, py - 3); ctx.lineTo(a, py + 3); ctx.moveTo(b, py - 3); ctx.lineTo(b, py + 3); ctx.stroke(); }
+    });
+    [[turvaR, '--p5', 'turvaraja'], [tasaR, '--p4', 'tasatahti']].forEach(([v, c, t], k) => {
+      if (v == null) return; const px = x.getPixelForValue(v);
+      ctx.strokeStyle = css(c); ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.moveTo(px, ca.top); ctx.lineTo(px, ca.bottom); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = css(c); ctx.textAlign = 'center'; ctx.fillText(`${t} ${luku(v)}`, px, ca.top - 5 - k * 12);
+    });
+    ctx.restore();
+  } };
+  kaaviot.push(new Chart($('c_nopeus'), {
+    type: 'bar', plugins: [tekstit],
+    data: { labels: rivit.map(r => r.y), datasets: [{ data: rivit.map(r => r.j.rate), backgroundColor: rivit.map(r => vari(r.j)), borderWidth: 0, barPercentage: .7 }] },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: selite },
-      scales: { x: Object.assign(aikaAkseli(W, viikko, xmax), { stacked: true }), y: akseliY('k tokenia / h', { stacked: true, beginAtZero: true }) },
-    },
-  }));
-
-  // kaavio 2: tokenia / 1 % jokaisella kiintiörivillä; ilman cache-lukuja toisella akselilla
-  const teho = W.teho;
-  kaaviot.push(new Chart($('k2'), {
-    type: 'line',
-    data: { datasets: [
-      { label: 'tokenia / 1 % (kaikki)', data: teho.map(r => ({ x: Date.parse(r.t), y: r.tokPer1 == null ? null : r.tokPer1 / 1e6 })), yAxisID: 'y', borderColor: css('--tok'), backgroundColor: css('--tok'), pointRadius: 3, tension: 0 },
-      { label: 'ilman cache-lukuja (oikea akseli)', data: teho.map(r => ({ x: Date.parse(r.t), y: r.ilmanCrPer1 == null ? null : r.ilmanCrPer1 / 1e6 })), yAxisID: 'y1', borderColor: css('--ilman'), backgroundColor: css('--ilman'), borderDash: [6, 4], pointStyle: 'rectRot', pointRadius: 4, tension: 0 },
-    ] },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: selite },
-      scales: {
-        x: aikaAkseli(W, viikko, xmax),
-        y: akseliY('M tokenia / 1 %', { beginAtZero: true }),
-        y1: akseliY('M / 1 %', { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }),
-      },
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 30, right: 6 } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => { const j = rivit[c.dataIndex].j; return ` ${j.nimi}: ${luku(j.rate)} %/h${j.unc ? ' ±' + luku(j.unc) : ''} · ${j.lahde}`; } } } },
+      scales: { x: akseliY('käyttönopeus, % kiintiötä tunnissa (%/h)', { min: 0, max: maxX }), y: { ticks: { color: css('--fg'), font: { size: 11 } }, grid: { display: false } } },
     },
   }));
 }
 
-function piirra() {
+// ---------- 4. lähikuva ----------
+function piirraLahi(M) {
+  const n = M.nyt; if (!n) return;
+  const idt = M.viikko ? ['p1', 'tanaan', 'ka', 'tasa', 'turva'] : ['p1', 'ka', 'tasa', 'turva'];
+  const ds = projektioSetit(M, idt);
+  $('o_lahi').textContent = `x = ${kloTeksti(n.t)} → nollautuminen ${aikaTeksti(M.resetMs)}, y = ${n.v} % … 100 % · jokainen tahti omana viivana, pallo = kohta jossa 100 % täyttyy (klo), tai resetin kohdalla "päätyy X %"`;
+  const lisa = [
+    { label: '100 %', data: [{ x: n.t, y: 100 }, { x: M.resetMs, y: 100 }], borderColor: css('--red'), borderWidth: 1.5, pointRadius: 0, order: 5 },
+    { label: 'oikeat lukemat', data: M.luk.filter(r => r.t >= n.t - 6 * TUNTI).map(r => ({ x: r.t, y: r.v })), borderColor: css('--accent'), backgroundColor: css('--red'), borderWidth: 3, pointRadius: 3, order: 2 },
+  ];
+  const lkVasen = Math.max(M.W.alku, n.t - Math.min(2 * TUNTI, n.t - M.W.alku));
+  kaaviot.push(new Chart($('c_lahi'), {
+    type: 'line', plugins: pluginit([], n.t),
+    data: { datasets: [...lisa, ...ds] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, parsing: false, layout: { padding: { right: 8 } },
+      interaction: { mode: 'nearest', intersect: true },
+      plugins: { legend: selite, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${(+c.raw.y).toFixed(1)} % · ${aikaTeksti(c.raw.x)}` } } },
+      scales: { x: aikaAkseli(n.t - 15 * 60e3, M.resetMs, M.viikko), y: akseliY('käytetty %', { min: Math.max(0, n.v - 2), max: 102 }) },
+    },
+  }));
+}
+
+// ---------- 5. taulukko ----------
+function piirraTaulu(M) {
+  const n = M.nyt; if (!n) { $('taulu').innerHTML = ''; return; }
+  $('o_taulu').textContent = `jäljellä ${100 - n.v} % lukemasta klo ${kloTeksti(n.t)} · "~" = arvio transkripteista (skaalattu oikeisiin lukemiin), muuten mitattu · pyöristysepävarmuus ± näkyy mitatuissa`;
+  const rivi = j => {
+    const lahde = j.lahde, uncT = j.unc ? ` ±${luku(j.unc)}` : '';
+    const p = M.proj(j.rate), jaljHours = j.rate > 0 ? (100 - n.v) / j.rate : Infinity;
+    const riittaa = !okN(j.rate) ? '–' : jaljHours === Infinity ? 'ei kulu' : p.osuu ? `${kesto(jaljHours)} (${p.t - n.t > 20 * TUNTI ? pvTeksti(p.t) + ' ' : ''}klo ${kloTeksti(p.t)})` : `riittää resetiin (päätyy ${r1(p.y)} %)`;
+    const taysi = j.rate > 0 ? kesto(100 / j.rate) : 'ei kulu';
+    const muutos = j.a != null && j.b != null ? `${lahde === 'arvio' ? '~' : ''}${r1(j.a)} → ${r1(j.b)} %` : '–';
+    return `<tr class="${j.id === 'turva' || j.id === 'p1' ? 'korostus' : ''}"><td>${j.nimi}</td><td>${muutos}</td><td>${luku(j.rate)}${uncT}</td><td>${luku(j.rate * 24)}</td><td>${riittaa}</td><td>${taysi}</td><td class="lahde">${lahde}</td></tr>`;
+  };
+  $('taulu').innerHTML = `<table><thead><tr><th>Jakso</th><th>käyrän muutos</th><th>%/h</th><th>%/vrk</th><th>jäljellä oleva riittää (loppuu)</th><th>täysi 100 % ${M.viikko ? 'viikko' : 'sessio'} kestäisi</th><th>lähde</th></tr></thead><tbody>${M.jaksot.filter(j => okN(j.rate)).map(rivi).join('')}</tbody></table>`;
+}
+
+// ---------- 6. tokenit tunneittain + kylmät ----------
+function piirraTokenit(M) {
+  const W = M.W, viikko = M.viikko, nimiLaji = { cr: 'cache-luku', cw: 'cache-kirjoitus', inp: 'syöte', out: 'tuloste' };
+  const mallit = ['kaikki', 'opus', 'sonnet', 'haiku'];
+  $('v_malli').innerHTML = mallit.map(m => `<button data-m="${m}" aria-pressed="${m === MALLI_VALINTA}">${m}</button>`).join('');
+  $('v_malli').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { MALLI_VALINTA = b.dataset.m; piira(); }));
+  const nim = viikko ? 'tunti' : '5 min';
+  $('h_tok').textContent = `Oikeat tokenit per ${nim}, lajeittain (${MALLI_VALINTA})`;
+  $('o_tok').textContent = 'transkripteista laskettu, ei $-arviota: cache-luku (kontekstin uudelleenluku), cache-kirjoitus (uusi/uudelleenrakennettu konteksti), syöte, tuloste · punainen palkin yläreuna-merkki = kylmä jakso';
+  const K = kylmat(M);
+  const arvo = (seg, laji) => { let t = 0; for (const m in seg.mallit) if (MALLI_VALINTA === 'kaikki' || m === MALLI_VALINTA) t += seg.mallit[m][laji] || 0; return t; };
+  const LOK = W.LOK, tunnit = M.segs, per = 1e6;
+  const sarja = (laji, vari) => ({ type: 'bar', label: nimiLaji[laji], backgroundColor: css(vari), stack: 'a', barPercentage: 1, categoryPercentage: 1,
+    data: tunnit.map(sg => ({ x: sg.t0 + LOK / 2, y: arvo(sg, laji) / per })) });
+  const kylmaTausta = { id: 'kylmaTausta', beforeDatasetsDraw(ch) {
+    const { ctx, scales: { x }, chartArea: ca } = ch; ctx.save();
+    for (const r of K.kylmaTunnit) { const l = x.getPixelForValue(r.seg.t0), rr = x.getPixelForValue(r.seg.t1); ctx.fillStyle = css('--red') + '30'; ctx.fillRect(l, ca.top, Math.max(2, rr - l), ca.bottom - ca.top); }
+    ctx.restore(); } };
+  kaaviot.push(new Chart($('c_tok'), {
+    type: 'bar', plugins: [kylmaTausta],
+    data: { datasets: [sarja('cr', '--cr'), sarja('cw', '--cw'), sarja('inp', '--inp'), sarja('out', '--out')] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      plugins: { legend: selite, tooltip: { callbacks: { title: it => aikaTeksti(it[0].raw.x - LOK / 2), label: c => ` ${c.dataset.label}: ${megaa(c.raw.y * 1e6)} tokenia` } } },
+      scales: { x: Object.assign(aikaAkseli(W.alku, M.tData + LOK, viikko), { stacked: true }), y: akseliY(`milj. tokenia per ${nim}`, { stacked: true, beginAtZero: true }) },
+    },
+  }));
+  // ilman cache-lukua (k tokenia)
+  $('o_tok2').textContent = 'sama data ilman cache-lukua (se hukuttaa muut) · punainen tausta = kylmä jakso: ≥ 20 % pyynnöistä rakensi prefixin uudelleen (cache-kirjoitus > cache-luku), esim. yli tunnin tauon tai kompaktion jälkeen';
+  const s2 = (laji, vari) => ({ type: 'bar', label: nimiLaji[laji], backgroundColor: css(vari), stack: 'b', barPercentage: 1, categoryPercentage: 1,
+    data: tunnit.map(sg => ({ x: sg.t0 + LOK / 2, y: arvo(sg, laji) / 1e3 })) });
+  kaaviot.push(new Chart($('c_tok2'), {
+    type: 'bar', plugins: [kylmaTausta],
+    data: { datasets: [s2('cw', '--cw'), s2('inp', '--inp'), s2('out', '--out')] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      plugins: { legend: selite, tooltip: { callbacks: { title: it => aikaTeksti(it[0].raw.x - LOK / 2), label: c => ` ${c.dataset.label}: ${megaa(c.raw.y * 1e3)} tokenia` } } },
+      scales: { x: Object.assign(aikaAkseli(W.alku, M.tData + LOK, viikko), { stacked: true }), y: akseliY(`tuhatta tokenia per ${nim}`, { stacked: true, beginAtZero: true }) },
+    },
+  }));
+  // kylmä vs lämmin
+  const s = M.skaala || 0;
+  if (!K.tiedossa) {
+    $('s_kylma').innerHTML = '<b>Kylmä vs lämmin: UNCLEAR.</b> data.json:n tunti-ämpäreissä ei ole pyyntökohtaista tietoa (kyl/kylUsd), pelkkä tuntikohtainen cw/(cr+cw) piilottaa yksittäiset kylmät pyynnöt. Päivitä data.json uudella usage-sivu.js:llä.';
+  } else {
+    const kylTunnit = K.kylmaTunnit.length, kylSeg = K.kylmaTunnit.reduce((a, r) => a + r.seg.usd, 0);
+    $('s_kylma').innerHTML = `<b>Kylmät pyynnöt</b> (cache-kirjoitus > cache-luku): ${K.kylPyynnot} / ${K.req} pyynnöstä (${(K.kylPyynnot / Math.max(1, K.req) * 100).toFixed(1)} %), mutta ne veivät ~${(K.osuusUsd * 100).toFixed(1)} % API-hinta-arviosta eli noin ${K.kylPct.toFixed(1)} %-yks kiintiöstä (skaalattu arvio: kylmä pyyntö maksaa API-hinnoilla n. ${(K.kylUsd / Math.max(1, K.kylPyynnot)).toFixed(2)} $ vs keskim. ${(K.usdKaikki / Math.max(1, K.req)).toFixed(3)} $). Kylmiä ${nim === 'tunti' ? 'tunteja' : 'jaksoja'}: ${kylTunnit} (punaisella taustalla); niissä ${(kylSeg / Math.max(1e-9, K.usdKaikki) * 100).toFixed(0)} % kaikesta hinta-arviosta. <b>Rajat:</b> "kylmä" = prefixin uudelleenrakennus, joka voi johtua tauosta (yli 5 min–1 h), kompaktiosta tai uudesta sessiosta — niitä ei voi erottaa tästä datasta; ja tilaus ei välttämättä hinnoittele cachea API-listahinnalla.`;
+  }
+}
+
+// ---------- 6b. päivät ja tunnit ----------
+function piirraPaivaTunnit(M) {
+  const Pv = paivat(M), K = kylmat(M), MV = ['opus', 'sonnet', 'haiku'];
+  $('o_pv').textContent = 'kalibroitu arvio transkripteista (sama skaala kuin viikkokäyrässä), pinottu malleittain · * = osittainen päivä (viikko alkoi / päivä kesken) · punainen pylväs = kylmien pyyntöjen osuus (cache-kirjoitus > cache-luku) samasta päivästä · oikeat claude.ai-lukemat kattavat vain viimeiset tunnit, joten yksittäinen päivä on aina arvio, ei mittaus';
+  kaaviot.push(new Chart($('c_pv'), {
+    type: 'bar',
+    data: { labels: Pv.map(p => p.label + (p.osittainen ? '*' : '')), datasets: [
+      ...MV.map(m => ({ label: m, data: Pv.map(p => p.mallit[m]), backgroundColor: css('--' + m), stack: 'a' })),
+      { label: 'josta kylmää', data: Pv.map(p => p.kylma), backgroundColor: css('--red'), stack: 'b' },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: selite, tooltip: { callbacks: {
+        label: c => ' ' + c.dataset.label + ': ' + c.raw.toFixed(1) + ' %-yks', afterBody: it => { const p = Pv[it[0].dataIndex]; return 'yhteensä ' + p.yht.toFixed(1) + ' %-yks · ' + (p.osittainen ? 'osittainen päivä ' + kesto((p.t1 - p.t0) / TUNTI) : 'koko päivä'); } } } },
+      scales: { x: { stacked: true, ticks: { color: css('--fg'), font: { size: 11 } }, grid: { display: false } }, y: akseliY('% viikkokiintiötä per päivä', { stacked: true, beginAtZero: true }) } },
+  }));
+  // tunnit
+  const valinta = PAIVA_VALINTA != null && Pv[PAIVA_VALINTA] ? PAIVA_VALINTA : null;
+  $('v_paiva').innerHTML = '<button data-p="" aria-pressed="' + (valinta == null) + '">Koko viikko</button>' + Pv.map((p, i) => '<button data-p="' + i + '" aria-pressed="' + (valinta === i) + '">' + p.label + '</button>').join('');
+  $('v_paiva').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { PAIVA_VALINTA = b.dataset.p === '' ? null : +b.dataset.p; piira(); }));
+  const LOK = M.W.LOK;
+  const t0 = valinta == null ? M.W.alku : Pv[valinta].paiva0, t1 = valinta == null ? M.tData + LOK : Pv[valinta].paiva0 + 24 * TUNTI;
+  const T = tunnit(M, t0, t1), mit = mitatutTunnit(M).filter(x => x.t0 >= t0 && x.t0 < t1);
+  $('h_tn').textContent = valinta == null ? 'Tuntikohtaiset palkit koko viikolta: % viikkokiintiötä per tunti' : 'Tuntikohtaiset palkit ' + Pv[valinta].label + ': % viikkokiintiötä per tunti';
+  $('o_tn').textContent = 'pylväs = kalibroitu arvio transkripteista, pinottu malleittain · punainen tausta = kylmä tunti (≥ 20 % pyynnöistä rakensi prefixin uudelleen) · oranssi salmiakki = oikeista claude.ai-lukemista laskettu parin keskitahti, vain jos lukemaväli ≥ 45 min (± pyöristys näkyy vihjeessä)';
+  const kylmaT = { id: 'kylmaTausta2', beforeDatasetsDraw(ch) {
+    const { ctx, scales: { x }, chartArea: ca } = ch; ctx.save();
+    for (const r of K.kylmaTunnit) { if (r.seg.t0 < t0 || r.seg.t0 >= t1) continue; const l = x.getPixelForValue(r.seg.t0), rr = x.getPixelForValue(r.seg.t0 + LOK); ctx.fillStyle = css('--red') + '30'; ctx.fillRect(l, ca.top, Math.max(2, rr - l), ca.bottom - ca.top); }
+    ctx.restore(); } };
+  kaaviot.push(new Chart($('c_tn'), {
+    type: 'bar', plugins: [kylmaT],
+    data: { datasets: [
+      ...MV.map(m => ({ type: 'bar', label: m, backgroundColor: css('--' + m), stack: 'a', barPercentage: 1, categoryPercentage: 1, data: T.map(r => ({ x: r.t0 + LOK / 2, y: r.mallit[m] })) })),
+      { type: 'line', label: 'mitattu (claude.ai, keskitahti)', showLine: false, pointStyle: 'rectRot', pointRadius: 6, borderColor: css('--fg'), backgroundColor: css('--nopeus'), data: mit.map(r => ({ x: r.t0 + LOK / 2, y: r.rate, unc: r.unc, aika: r.aika })) },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      plugins: { legend: selite, tooltip: { callbacks: { title: it => aikaTeksti(it[0].raw.x - LOK / 2),
+        label: c => c.raw.unc != null ? ' mitattu ' + luku(c.raw.y) + ' ±' + luku(c.raw.unc) + ' %/h (lukemaväli ' + Math.round(c.raw.aika) + ' min)' : ' ' + c.dataset.label + ': ' + c.raw.y.toFixed(2) + ' %-yks' } } },
+      scales: { x: Object.assign(aikaAkseli(t0, t1, valinta == null), { stacked: true }), y: akseliY('% viikkokiintiötä per tunti', { stacked: true, beginAtZero: true }) } },
+  }));
+  const kylT = T.filter(r => K.kylmaTunnit.some(k => k.seg === r.seg)), kylSum = kylT.reduce((a, r) => a + r.yht, 0), yht = T.reduce((a, r) => a + r.yht, 0);
+  $('s_tn').innerHTML = K.tiedossa ? 'Näkyvällä välillä ' + yht.toFixed(1) + ' %-yks (arvio), josta kylmiksi merkityillä tunneilla ' + kylSum.toFixed(1) + ' (' + kylT.length + ' tuntia); kylmien pyyntöjen oma osuus ~' + T.reduce((a, r) => a + r.kylma, 0).toFixed(1) + ' %-yks. Mitattuja tuntipisteitä: ' + mit.length + '.' : 'Kylmät tunnit: UNCLEAR, data.json:ssa ei pyyntökohtaista kyl-tietoa.';
+}
+
+// ---------- 7. tehokkuus jaksoittain (vain viikko) ----------
+function piirraTehokkuus(M) {
+  const n = M.nyt; if (!n) return;
+  const J = M.jaksot.filter(j => !['turva', 'tasa', 'p1a'].includes(j.id) && j.tok > 0 && j.usd > 0);
+  const nimet = J.map(j => j.lyhyt);
+  const dpct = j => j.b - j.a;
+  $('o_eff1').textContent = 'API-listahinta jaettuna jakson tokeneilla: matala = enemmän halpaa cache-lukua, korkea = paljon uutta kirjoitusta/tulostetta tai kylmiä aloituksia · samat jaksot kuin nopeuskaaviossa';
+  $('o_eff2').textContent = 'mitattu (kirkas): pyrähdys ja viikon keskiarvo claude.ai:n %-lukemista · arvio (haalea): jakson tokenit jaettuna skaalatulla Δ-%:lla. Arvio on sama tieto kuin $/M käännettynä, koska % johdettiin $:sta; vain kirkkaat pylväät ovat itsenäinen mittaus.';
+  const vari = j => css('--accent') + (j.lahde === 'mitattu' ? '' : '77');
+  kaaviot.push(new Chart($('c_eff1'), {
+    type: 'bar',
+    data: { labels: nimet, datasets: [{ data: J.map(j => j.usd / j.tok * 1e6), backgroundColor: J.map(vari), borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw.toFixed(2)} $ / M tokenia · ${megaa(J[c.dataIndex].tok)} tokenia` } } },
+      scales: { x: { ticks: { color: css('--fg'), font: { size: 10 }, maxRotation: 45, minRotation: 45 }, grid: { display: false } }, y: akseliY('$ per miljoona tokenia', { beginAtZero: true }) } },
+  }));
+  const T = J.map(j => dpct(j) > 0.05 ? j.tok / dpct(j) / 1e6 : null);
+  kaaviot.push(new Chart($('c_eff2'), {
+    type: 'bar',
+    data: { labels: nimet, datasets: [{ data: T, backgroundColor: J.map(vari), borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw == null ? '–' : c.raw.toFixed(1)} M tokenia / 1 % · Δ ${dpct(J[c.dataIndex]).toFixed(1)} %-yks · ${J[c.dataIndex].lahde}` } } },
+      scales: { x: { ticks: { color: css('--fg'), font: { size: 10 }, maxRotation: 45, minRotation: 45 }, grid: { display: false } }, y: akseliY('milj. tokenia per 1 % kiintiötä', { beginAtZero: true }) } },
+  }));
+  // vanhat kertymäkaaviot: kaksi erillistä, yksi akseli kummassakin
+  const teho = M.W.teho || [];
+  const pis = (f) => teho.map(r => ({ x: Date.parse(r.t), y: r[f] == null ? null : r[f] / 1e6 }));
+  const kaavio2 = (id, f, vari, teksti) => kaaviot.push(new Chart($(id), {
+    type: 'line', data: { datasets: [{ label: teksti, data: pis(f), borderColor: css(vari), backgroundColor: css(vari), pointRadius: 3, tension: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${(+c.raw.y).toFixed(f === 'tokPer1' ? 1 : 2)} M tokenia / 1 %` } } },
+      scales: { x: aikaAkseli(M.W.alku, M.tData + 3600e3, true), y: akseliY(teksti, { beginAtZero: true, ticks: { color: css('--muted'), callback: v => v + ' M' } }) } },
+  }));
+  $('o_k2a').textContent = `jokainen kiintiörivi (${teho.length} kpl): kaikki tokenit viikon alusta tähän asti ÷ viikko-% sillä hetkellä`;
+  $('o_k2b').textContent = 'sama, mutta cache-lukuja ei lasketa mukaan: syöte + cache-kirjoitus + tuloste ÷ viikko-%. Mitä isompi, sitä enemmän uutta työtä yhdellä prosentilla.';
+  kaavio2('c_k2a', 'tokPer1', '--tok', 'milj. tokenia per 1 % (sis. cache-luvut)');
+  kaavio2('c_k2b', 'ilmanCrPer1', '--ilman', 'milj. tokenia per 1 % (ilman cache-lukuja)');
+}
+
+// ---------- 8. kompaktiot ----------
+function piirraKompaktiot() {
+  const K = D.kompaktio;
+  if (!K || !K.rajat) { ['o_komp1', 'o_komp2', 'o_komp3'].forEach(i => { $(i).textContent = 'ei kompaktiodataa (data.json ei sisällä "kompaktio"-osaa; usage-sivu.js:n uusi versio kirjoittaa sen)'; $(i).parentElement.querySelectorAll('.kaavio').forEach(e => e.style.display = 'none'); }); return; }
+  document.querySelectorAll('#vain_viikko .kaavio').forEach(e => e.style.display = '');
+  const auto = K.rajat.filter(r => r.trig === 'auto' && r.pre);
+  const min = Date.parse(K.rajat[0].t) - 3600e3, max = Date.now();
+  $('o_komp1').textContent = `${K.rajat.length} kompaktiota ${K.paivia} pv ajalta (${auto.length} automaattista): palkki = konteksti kompaktion jälkeisestä ensimmäisestä pyynnöstä (alareuna) aina rajaan jossa kompaktio laukesi (yläreuna). Raja on havainto, ei Clauden ilmoittama arvo: ylärajat ryhmittyvät muutamaan tasoon asetusten mukaan.`;
+  // palkit = ala- ja yläpiste yhdistettynä (Chart.js:n kelluva palkki ei toimi parsing:false + aika-akselilla)
+  const manu = K.rajat.filter(r => r.trig !== 'auto' && r.pre);
+  const pisteet = (arr, f) => arr.map(r => ({ x: Date.parse(r.t), y: f(r) / 1e3 }));
+  const yhdistaja = { id: 'yhdista', beforeDatasetsDraw(ch) {
+    const { ctx, scales: { x, y }, chartArea: ca } = ch; ctx.save(); ctx.beginPath(); ctx.rect(ca.left, ca.top, ca.right - ca.left, ca.bottom - ca.top); ctx.clip();
+    ctx.lineWidth = 2;
+    for (const [arr, vari] of [[auto, css('--amber') + '88'], [manu, css('--accent') + '88']]) for (const r of arr) {
+      if (!r.ensi) continue; const px = x.getPixelForValue(Date.parse(r.t));
+      ctx.strokeStyle = vari; ctx.beginPath(); ctx.moveTo(px, y.getPixelForValue(r.ensi / 1e3)); ctx.lineTo(px, y.getPixelForValue(r.pre / 1e3)); ctx.stroke();
+    }
+    ctx.restore(); } };
+  kaaviot.push(new Chart($('c_komp1'), {
+    type: 'line', plugins: [yhdistaja],
+    data: { datasets: [
+      { label: 'raja jossa autocompact laukesi', data: pisteet(auto, r => r.pre), showLine: false, backgroundColor: css('--amber'), borderColor: css('--amber'), pointRadius: 2.5 },
+      { label: 'manuaalinen kompaktio', data: pisteet(manu, r => r.pre), showLine: false, backgroundColor: css('--accent'), borderColor: css('--accent'), pointRadius: 3 },
+      { label: 'konteksti kompaktion jälkeen', data: pisteet(K.rajat.filter(r => r.ensi), r => r.ensi), showLine: false, backgroundColor: css('--muted'), borderColor: css('--muted'), pointRadius: 2 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      plugins: { legend: selite, tooltip: { callbacks: { title: it => aikaTeksti(it[0].raw.x), label: c => ' ' + c.dataset.label + ': ' + Math.round(c.raw.y) + 'k' } } },
+      scales: { x: aikaAkseli(min, max, true), y: akseliY('konteksti, tuhatta tokenia', { beginAtZero: true }) } },
+  }));
+  // pyyntöhinta ctx:n mukaan
+  const malleja = ['opus-5-5', 'sonnet-5-5'], ver = [...new Set(K.kayra.map(x => x.k0))].sort((a, b) => a - b).filter(k => K.kayra.some(x => x.k0 === k && x.n >= 30));
+  const sar = (m, f, label, vari, tyyppi) => ({ type: tyyppi, label, data: ver.map(k => { const x = K.kayra.find(z => z.malli === m && z.k0 === k && z.n >= 30); return x ? x[f] : null; }), borderColor: css(vari), backgroundColor: css(vari), pointRadius: 3, tension: 0, borderWidth: 2 });
+  $('o_komp2').textContent = 'yhden pyynnön API-listahinta kontekstin koon mukaan (ämpärit 50k, ≥ 30 pyyntöä): mediaani ja p90 · jokainen pyyntö lukee koko kontekstin uudelleen, joten hinta kasvaa lähes lineaarisesti';
+  kaaviot.push(new Chart($('c_komp2'), {
+    type: 'line',
+    data: { labels: ver.map(k => `${k}–${k + 50}k`), datasets: [sar('opus-5-5', 'med', 'opus mediaani', '--opus', 'line'), sar('opus-5-5', 'p90', 'opus p90', '--opus', 'line'), sar('sonnet-5-5', 'med', 'sonnet mediaani', '--sonnet', 'line')].map((d, i) => i === 1 ? { ...d, borderDash: [4, 3] } : d) },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: selite },
+      scales: { x: { ticks: { color: css('--muted'), font: { size: 10 }, maxRotation: 45 }, grid: { color: css('--line') } }, y: akseliY('$ per pyyntö', { beginAtZero: true }) } },
+  }));
+  // raja-optimi
+  const MM = kompMalli(K);
+  const tasot = {};
+  for (const r of auto) { const t = Math.round(r.pre / 50e3) * 50; (tasot[t] = tasot[t] || []).push(r); }
+  const rivit = Object.keys(tasot).map(Number).sort((a, b) => a - b).map(t => {
+    const a = tasot[t], usd = a.reduce((s, r) => s + (r.usd || 0), 0), nn = a.reduce((s, r) => s + (r.n || 0), 0);
+    const md = x => { x = x.filter(okN).sort((p, q) => p - q); return x.length ? x[x.length >> 1] : null; };
+    return { t: Math.round(md(a.map(r => r.pre)) / 1e3), kpl: a.length, nPyynt: md(a.map(r => r.n)), hPyynto: nn ? usd / nn : null, sykli: md(a.map(r => r.usd)), ensi: md(a.map(r => r.ensiUsd)), viim: a[a.length - 1].t };
+  });
+  $('taulu_komp').innerHTML = `<table><thead><tr><th>raja (havaittu)</th><th>kompaktioita</th><th>pyyntöä / sykli</th><th>$ / pyyntö (toteutunut)</th><th>$ / sykli</th><th>1. pyyntö kompaktion jälkeen</th></tr></thead><tbody>${rivit.map(r => `<tr><td>~${r.t}k</td><td>${r.kpl}</td><td>${r.nPyynt ?? '–'}</td><td>${r.hPyynto != null ? r.hPyynto.toFixed(3) : '–'}</td><td>${r.sykli != null ? r.sykli.toFixed(2) : '–'}</td><td>${r.ensi != null ? r.ensi.toFixed(2) : '–'} $</td></tr>`).join('')}</tbody></table>`;
+  if (MM) {
+    $('o_komp3').textContent = `malli: konteksti kasvaa ~${MM.g.toFixed(1)}k / pyyntö alkaen ~${Math.round(MM.f)}k:sta (viimeisten kompaktioiden mediaani), kompaktion jälkeinen ensimmäinen pyyntö maksaa ~${MM.Kx.toFixed(2)} $ enemmän (prefixin uudelleenrakennus) · viiva = keskihinta per pyyntö jos raja olisi x`;
+    const hav = rivit.filter(r => r.hPyynto != null).map(r => ({ x: r.t, y: r.hPyynto }));
+    kaaviot.push(new Chart($('c_komp3'), {
+      type: 'line',
+      data: { datasets: [
+        { label: 'malli (kayräfunktio + ensipyyntö)', data: MM.kayra.map(p => ({ x: p.x, y: p.y })), borderColor: css('--accent'), backgroundColor: css('--accent'), pointRadius: 0, tension: 0, borderWidth: 2 },
+        { label: 'toteutunut (havaittu raja)', data: hav, showLine: false, borderColor: css('--red'), backgroundColor: css('--red'), pointRadius: 6 },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, animation: false, parsing: false, plugins: { legend: selite },
+        scales: { x: { type: 'linear', min: 150, max: 600, ticks: { color: css('--muted'), callback: v => v + 'k' }, title: { display: true, text: 'autocompact-raja, tuhatta tokenia', color: css('--muted'), font: { size: 11 } }, grid: { color: css('--line') } }, y: akseliY('$ per pyyntö (keskim.)', { min: 0 }) } },
+    }));
+    const rajaNyt = auto.length ? Math.round(auto[auto.length - 1].pre / 1e3) : null;
+    $('s_komp').innerHTML = `Mallin minimi on rajalla ~${MM.optimi.x}k (${MM.optimi.y.toFixed(3)} $/pyyntö, sykli ~${Math.round(MM.optimi.n)} pyyntöä); viimeisin havaittu raja ~${rajaNyt}k. <b>Rajat:</b> hinta on API-listahinta eikä tilauksen %-kulu; malli ei tiedä miten kompaktio vaikuttaa työn laatuun (pitkä konteksti on hyödyllistä, kompaktio hävittää yksityiskohtia) eikä kuinka usein ehdit työskennellä rauhassa ilman kylmää aloitusta; toteutuneet rivit sekoittavat eri työtyyppejä, joten ne eivät todista rajan vaikutusta. Kun raja vaihtuu, uusi taso ilmestyy taulukkoon ja kaavioon vasta ensimmäisen kompaktion jälkeen.`;
+  } else { $('o_komp3').textContent = 'mallia ei voi laskea: liian vähän dataa (< 5 automaattista kompaktiota tai < 3 kontekstiämpäriä).'; }
+}
+
+function alaviite(M) {
+  const so = M && M.sovitus;
+  $('alaviite').innerHTML = 'RAJA: claude.ai-chatit/muut laitteet eivät ole transkripteissa · oikeat lukemat ovat kokonaisluku-%:eja (~15 min välein) ja niistä laskettu tahti on aina ≥ 45 min ikkunasta · käyrän muoto ennen ensimmäistä oikeaa lukemaa on transkripteista skaalattu arvio (kiintiön oletetaan olevan ~ API-hinta; mikään token-laji ei selitä %:ia muita paremmin, joten skaala on karkea) · projektiot oletettavat tahdin pysyvän vakiona' +
+    (so ? ` · sovitusvirhe ±${so.keskimVirhe.toFixed(2)} %-yks (${so.n} lukemaa, ${kesto(so.kattaaH)})` : '') + '<br>Data: data.json (usage-sivu.js) · päivittyy kun kiintiörivi muuttuu';
+}
+
+function piira() {
   if (!D) return;
+  kaaviot.forEach(c => c.destroy()); kaaviot = [];
   tiilet();
-  piirraKaaviot();
+  document.getElementById('vain_viikko').style.display = VALI === 'viikko' ? '' : 'none';
+  if (typeof Chart === 'undefined') { $('virhe').textContent = 'Chart.js ei latautunut (CDN)'; return; }
+  const M = malli(D, VALI === 'viikko' ? 'viikko' : 'sessio', Date.now());
+  piirraVastaus(M);
+  if (M.nyt) { piirraKayra(M); piirraNopeus(M); piirraLahi(M); piirraTaulu(M); }
+  document.getElementById('vain_viikko0').style.display = VALI === 'viikko' ? '' : 'none';
+  if (VALI === 'viikko' && M.nyt && M.skaala) piirraPaivaTunnit(M);
+  piirraTokenit(M);
+  if (VALI === 'viikko') { piirraTehokkuus(M); piirraKompaktiot(); }
+  alaviite(M);
 }
 
 async function lataa() {
@@ -257,23 +914,23 @@ async function lataa() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     D = await r.json();
     $('virhe').textContent = '';
-    piirra();
+    piira();
   } catch (e) {
-    $('virhe').textContent = 'data.json lataus epäonnistui: ' + e.message;
+    $('virhe').textContent = 'data.json lataus tai piirto epäonnistui: ' + e.message;
   }
 }
 
 document.querySelectorAll('[role=tab]').forEach(b => b.addEventListener('click', () => {
   VALI = b.dataset.v;
   document.querySelectorAll('[role=tab]').forEach(t => t.setAttribute('aria-selected', String(t === b)));
-  piirra();
+  piira();
 }));
-// teema vaihtuu -> kaaviot uusiksi (värit luetaan CSS-muuttujista)
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', piirra);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', piira);
 
 lataa();
 setInterval(lataa, 5 * 60e3);
 setInterval(() => { if (D) tiilet(); }, 30e3);
+}
 </script>
 </body>
 </html>
