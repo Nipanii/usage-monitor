@@ -667,7 +667,7 @@ function piirraVastaus(M) {
   if (A.luokka === 'ok') {
     otsikkoVastaus = `🟢 RIITTÄÄ NOLLAUKSEEN ASTI${K && K.pr ? ' (päätyy ~' + Math.round(K.pr.y) + ' %)' : ''}`;
   } else if (A.luokka === 'epavarma') {
-    otsikkoVastaus = `🟡 RAJALLA — ${K && K.pr && K.pr.osuu ? 'loppuu ' + VPV[new Date(K.pr.t).getDay()] + ' klo ' + kloTeksti(K.pr.t) + ' jos tahti ei laske' : 'riippuu loppujakson tahdista'}`;
+    otsikkoVastaus = `🟡 RAJALLA — ${K && K.pr && K.pr.osuu ? 'loppuu ' + VPV[new Date(K.pr.t).getDay()] + ' klo ' + kloTeksti(K.pr.t) + ' (' + K.J.lyhyt.toLowerCase() + ' ' + luku(K.J.rate) + ' %/h)' : 'riippuu loppujakson tahdista'}`;
   } else {
     const loppAika = (K && K.pr && K.pr.osuu) ? `${VPV[new Date(K.pr.t).getDay()]} klo ${kloTeksti(K.pr.t)}` : (T && T.pr && T.pr.osuu ? `${VPV[new Date(T.pr.t).getDay()]} klo ${kloTeksti(T.pr.t)}` : 'ennen nollausta');
     otsikkoVastaus = `🔴 EI RIITÄ NYKYTAHDILLA — loppuu ${loppAika}`;
@@ -676,10 +676,14 @@ function piirraVastaus(M) {
   const tj = T ? T.J : null;
   const paivaNimi = M.viikko ? (tj && tj.id === 'tanaan' ? 'Tämän päivän tahti' : 'Nykyinen lähitahti') : 'Nykyinen lähitahti';
   const paivaArvo = tj ? `${luku(tj.rate)} %/h` : '–';
-  const paivaBadge = tj ? (tj.lahde === 'mitattu' ? '<span class="badge b-mitattu">mitattu</span>' : '<span class="badge b-arvio">arvio</span>') : '';
+  const lahdeBadge = J => J ? (J.lahde === 'mitattu' ? '<span class="badge b-mitattu">mitattu</span>' : '<span class="badge b-arvio">arvio</span>') : '';
+  const paivaBadge = lahdeBadge(tj), kaBadge = lahdeBadge(K ? K.J : null);
   const paivaTark = tj
-    ? (M.viikko ? `≈ ${luku(tj.rate * 24)} %/vrk · viikon ka <b>${K ? luku(K.J.rate) : '–'} %/h</b> ${paivaBadge}` : `session ka <b>${K ? luku(K.J.rate) : '–'} %/h</b> ${paivaBadge}`)
+    ? (M.viikko ? `≈ ${luku(tj.rate * 24)} %/vrk ${paivaBadge} · viikon ka <b>${K ? luku(K.J.rate) : '–'} %/h</b> ${kaBadge}` : `${paivaBadge} · session ka <b>${K ? luku(K.J.rate) : '–'} %/h</b> ${kaBadge}`)
     : 'ei dataa';
+  // väri/otsikko muodostuu kahdesta tahdista (viikon/session ka + päivä- tai lähitahti): näytä kumpikin ikkunansa ja tuloksensa kanssa
+  const tahtiRivi = E => E ? `${E.J.lyhyt} <b>${luku(E.J.rate)} %/h</b> (${kesto(E.J.h)}) ${lahdeBadge(E.J)} → ${E.teksti}` : '';
+  const perusteet = [tahtiRivi(K), T && K && T.J === K.J ? '' : tahtiRivi(T)].filter(Boolean).join(' · ') + (A.luokka === 'epavarma' ? ' · keltainen = tahdit eroavat tai ovat rajalla' : '');
 
   let tavHtml = '';
   if (A.tavoitteet && A.tavoitteet.length) {
@@ -693,6 +697,7 @@ function piirraVastaus(M) {
   el.innerHTML =
     `<div class="kysymys"><span>Riittääkö ${yks} nollaukseen asti (${aikaTeksti(M.resetMs)})?</span> <span class="badge b-mitattu">mitattu · claude.ai</span></div>` +
     `<div class="iso">${otsikkoVastaus}</div>` +
+    `<div style="font-size:12px;color:var(--muted);margin:0 0 8px;overflow-wrap:anywhere">Tahdit, joista tämä muodostuu: ${perusteet}</div>` +
     `<div class="vastaus-luvut">` +
       `<div class="v-luku"><span class="v-ots">Nykyinen %</span><span class="v-arvo">${v} % <span style="font-size:14px;font-weight:600;color:var(--muted)">(jäljellä ${100 - v} %)</span></span><div class="v-tark">Nollaus ${jaljella(M.resetMs)} päästä · <span class="badge b-mitattu">mitattu</span></div></div>` +
       `<div class="v-luku"><span class="v-ots">Tarvittava tahti nollaukseen</span><span class="v-arvo">≤ ${luku(A.turva)} %/h</span><div class="v-tark">≈ ${luku(A.turva * 24)} %/vrk (${100 - v} % ÷ ${kesto(M.hReset)}) · <span class="badge b-laskettu">laskettu</span></div></div>` +
