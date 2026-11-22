@@ -484,7 +484,7 @@ function malli(D, key, nytMs) {
     const lo = M.proj(J.rate + (J.unc || 0)), hi = M.proj(Math.max(0, J.rate - (J.unc || 0)));
     const eroaa = lo.osuu !== hi.osuu;
     const teksti = eroaa ? `epävarma: ${lo.osuu ? 'loppuu ' + aikaTeksti(lo.t) : 'riittää'} … ${hi.osuu ? 'loppuu ' + aikaTeksti(hi.t) : 'riittää resetiin'}`
-      : (p.osuu ? `loppuu ${aikaTeksti(p.t)}` : `riittää resetiin (päätyy ~${r1(p.y)} %)`);
+      : (p.osuu ? `loppuu ${aikaTeksti(p.t)}` : `✓ riittää resetiin (päätyy ~${r1(p.y)} %, riittäisi ${aikaTeksti(n.t + p.h * TUNTI)} asti)`); // kp 22.11. 04:28
     return { J, pr: p, eroaa, teksti, luokka: eroaa ? 'epavarma' : (p.osuu ? 'huono' : 'ok') };
   };
   const kaE = etaJ(M.J('ka')), viimeE = etaJ(M.J('p3h') || M.J('p1') || M.J('p1a'));
@@ -688,7 +688,12 @@ function piirraVastaus(M) {
   let tavHtml = '';
   if (A.tavoitteet && A.tavoitteet.length) {
     tavHtml = '<div class="toiminta">' + A.tavoitteet.map(t => {
-      const tila = t.ok ? '<span style="color:var(--green)">✓ tahti riittää</span>' : `<span style="color:var(--red)">✗ laske tahtia (viikon ka ${K ? luku(K.J.rate) : '–'} %/h)</span>`;
+      // kp 22.11.2026 04:28: "näyttäis mihin päivään asti riittäis vaikka se menis resetin yli ... voidaa pitää se checkmark siinä"
+      // = nyt + (100 - käytetty %) / viikon ka-tahti; ei huomioi resetin nollausta (pelivaran kuva)
+      const nytMs = M.nyt && M.nyt.t ? (typeof M.nyt.t === 'number' ? M.nyt.t : Date.parse(M.nyt.t)) : Date.now();
+      const riittoMs = K && K.J && K.J.rate > 0 ? (isFinite(nytMs) ? nytMs : Date.now()) + (100 - v) / K.J.rate * 3600e3 : null;
+      const riittoTeksti = riittoMs ? ` · riittäisi ${aikaTeksti(riittoMs)} asti${riittoMs > M.resetMs ? ' (resetin yli)' : ''}` : '';
+      const tila = t.ok ? `<span style="color:var(--green)">✓ tahti riittää</span>${riittoTeksti}` :`<span style="color:var(--red)">✗ laske tahtia (viikon ka ${K ? luku(K.J.rate) : '–'} %/h)</span>`;
       const varaus = t.tarve ? ` (+${t.tarve} % varaus)` : '';
       return `<div>${t.ok ? '🟢' : '🔴'} <b>${t.nimi} (${VPV[new Date(t.aikaMs).getDay()]} klo ${kloTeksti(t.aikaMs)}${varaus}):</b> vaatii ≤ <b>${luku(t.maxRate)} %/h</b> (${luku(t.maxRate * 24)} %/vrk) · ${tila}</div>`;
     }).join('') + '</div>';
@@ -1362,7 +1367,7 @@ function piirraTaulu(M) {
   const rivi = j => {
     const lahde = j.lahde, uncT = j.unc ? ` ±${luku(j.unc)}` : '';
     const p = M.proj(j.rate), jaljHours = j.rate > 0 ? (100 - n.v) / j.rate : Infinity;
-    const riittaa = !okN(j.rate) ? '–' : jaljHours === Infinity ? 'ei kulu' : p.osuu ? `<b style="color:var(--red)">loppuu ${VPV[new Date(p.t).getDay()]} ${kloTeksti(p.t)}</b><br><span style="font-size:11px;color:var(--muted)">(${kesto(jaljHours)})</span>` : `<b style="color:var(--green)">riittää resetiin</b><br><span style="font-size:11px;color:var(--muted)">(päätyy ${r1(p.y)} %)</span>`;
+    const riittaa = !okN(j.rate) ? '–' : jaljHours === Infinity ? 'ei kulu' : p.osuu ? `<b style="color:var(--red)">loppuu ${VPV[new Date(p.t).getDay()]} ${kloTeksti(p.t)}</b><br><span style="font-size:11px;color:var(--muted)">(${kesto(jaljHours)})</span>` : `<b style="color:var(--green)">✓ riittää resetiin</b><br><span style="font-size:11px;color:var(--muted)">(päätyy ${r1(p.y)} %) · riittäisi ${aikaTeksti(n.t + jaljHours * 3600e3)} asti</span>`; // kp 22.11. 04:28: päivä vaikka menee resetin yli
     const muutos = j.a != null && j.b != null ? `${r1(j.a)}→${r1(j.b)} %` : '';
     const kor = j.id === 'ka' || j.id === 'turva' ? 'korostus' : '';
     return `<tr class="${kor}">` +
